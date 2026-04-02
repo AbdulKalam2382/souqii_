@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { aiSmartSearch, checkCompatibility } from '@/lib/ai';
 import { selectBestCourier } from '@/lib/courier';
+import { createCheckoutSession } from '@/lib/stripe';
 
 // Helper: send a message back to the user on Telegram
 async function sendMessage(chatId, text, options) {
@@ -53,6 +54,8 @@ async function parseUserIntent(userMessage) {
   prompt += '  "intent": "browse" | "search" | "order" | "track" | "compatibility" | "recommend" | "greeting" | "help" | "unknown",\n';
   prompt += '  "searchQuery": "extracted search terms if intent is search, otherwise empty string",\n';
   prompt += '  "productId": null or integer if they mention a specific product ID,\n';
+  prompt += '  "shippingAddress": "extracted shipping address if mentioned, otherwise null",\n';
+  prompt += '  "shippingCity": "extracted city in Kuwait (default: Kuwait City) if mentioned, otherwise null",\n';
   prompt += '  "orderId": null or integer if they want to track an order,\n';
   prompt += '  "part1Id": null or integer for compatibility check part 1,\n';
   prompt += '  "part2Id": null or integer for compatibility check part 2,\n';
@@ -178,9 +181,17 @@ export async function POST(request) {
     else if (intent.intent === 'order') {
       var productId = intent.productId;
       var qty = intent.quantity || 1;
+      var address = intent.shippingAddress;
+      var city = intent.shippingCity || "Kuwait City";
 
       if (!productId) {
         await sendMessage(chatId, "🛒 Please specify a product ID. Example: \"order 3\"");
+        return NextResponse.json({ ok: true });
+      }
+
+      // If no address, we ask for it and return
+      if (!address) {
+        await sendMessage(chatId, "📍 I've got your order for <b>Product " + productId + "</b>! \n\nWhere should I ship this to in Kuwait? (Just type your address)");
         return NextResponse.json({ ok: true });
       }
 
@@ -192,7 +203,7 @@ export async function POST(request) {
         .single();
 
       if (prodErr || !product) {
-        await sendMessage(chatId, "❌ Product ID " + productId + " not found. Type \"browse\" to see available products.");
+        await sendMessage(chatId, "❌ Product ID " + productId + " not found.");
         return NextResponse.json({ ok: true });
       }
 
@@ -203,30 +214,27 @@ export async function POST(request) {
 
       // AI selects the best courier
       var courierResult = await selectBestCourier({
-        destinationCity: "Kuwait City",
+        destinationCity: city,
         orderValue: product.price * qty,
         packageWeight: 1.5
       });
 
       var total = (product.price * qty).toFixed(2);
-      var deliveryDate = new Date();
-      var daysToAdd = parseInt(courierResult.estimatedDays) || 2;
-      deliveryDate.setDate(deliveryDate.getDate() + daysToAdd);
-      var estDelivery = deliveryDate.toISOString().split('T')[0];
-
-      // Create the order in Supabase
+      
+      // Create order with pending_payment status
       const { data: order, error: orderErr } = await supabaseAdmin
         .from('orders')
         .insert({
-          status: 'confirmed',
+          status: 'pending_payment',
           channel: 'telegram',
           total: total,
-          shipping_address: 'Telegram User ' + userName,
-          shipping_city: 'Kuwait City',
+          shipping_address: address,
+          shipping_city: city,
           courier: courierResult.courier,
           courier_cost: courierResult.cost,
-          estimated_delivery: estDelivery,
-          ai_courier_reason: courierResult.reasoning
+          estimated_delivery: "Pending", // Will be finalized after payment
+          ai_courier_reason: courierResult.reasoning,
+          telegram_chat_id: chatId.toString()
         })
         .select()
         .single();
@@ -236,7 +244,6 @@ export async function POST(request) {
         return NextResponse.json({ ok: true });
       }
 
-      // Add order items
       await supabaseAdmin.from('order_items').insert({
         order_id: order.id,
         product_id: product.id,
@@ -244,22 +251,24 @@ export async function POST(request) {
         unit_price: product.price
       });
 
-      // Reduce stock
-      await supabaseAdmin
-        .from('products')
-        .update({ stock: product.stock - qty })
-        .eq('id', product.id);
+      // Generate Stripe Link
+      const baseUrl = "https://souqii-one.vercel.app";
+      const checkoutUrl = await createCheckoutSession(order.id, parseFloat(total), baseUrl);
 
-      // Send confirmation
-      var confirm = "✅ <b>Order Confirmed!</b>\n\n";
+      // Send confirmation with Pay Button
+      var confirm = "🛒 <b>Draft Order Created!</b>\n\n";
       confirm += "📦 " + product.name + " x" + qty + "\n";
       confirm += "💰 Total: KD " + total + "\n";
-      confirm += "🚚 Courier: " + courierResult.courier + "\n";
-      confirm += "📅 Est. Delivery: " + estDelivery + "\n";
-      confirm += "🧾 Order ID: #" + order.id + "\n\n";
-      confirm += "💡 " + courierResult.reasoning + "\n\n";
-      confirm += "Type \"track " + order.id + "\" to check your order status!";
-      await sendMessage(chatId, confirm);
+      confirm += "📍 Shipping to: " + address + "\n\n";
+      confirm += "Please complete your payment below to confirm the shipment:";
+      
+      await sendMessage(chatId, confirm, {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "💳 Pay Now (Secure Stripe)", url: checkoutUrl }
+          ]]
+        }
+      });
     }
 
     // ──────────────────────────────
