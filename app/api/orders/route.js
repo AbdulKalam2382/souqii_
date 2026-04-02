@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { selectBestCourier } from '@/lib/courier'
 
 export async function POST(request) {
   try {
@@ -31,14 +32,20 @@ export async function POST(request) {
       return sum + (product.price * item.quantity)
     }, 0)
 
-    const couriers = [
-      { courier: 'DHL Express', cost: 3.5, days: 1 },
-      { courier: 'FedEx Priority', cost: 4.2, days: 1 },
-      { courier: 'Aramex', cost: 2.8, days: 2 }
-    ]
-    const selected = total > 300 ? couriers[0] : couriers[2]
+    // Call the exact same AI Courier logic as the Telegram Bot!
+    const orderDetails = {
+      destinationCity: shipping_city || 'Kuwait City',
+      orderValue: total,
+      packageWeight: items.length * 1.5 // Rough estimation for weight
+    }
+    const aiCourier = await selectBestCourier(orderDetails)
+
+    // Estimate based on the string e.g. "X days" -> integer
+    const daysStr = aiCourier.estimatedDays.match(/\d+/)
+    const offsetDays = daysStr ? parseInt(daysStr[0]) : 2
+
     const deliveryDate = new Date()
-    deliveryDate.setDate(deliveryDate.getDate() + selected.days)
+    deliveryDate.setDate(deliveryDate.getDate() + offsetDays)
     const estimatedDelivery = deliveryDate.toISOString().split('T')[0]
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -50,12 +57,10 @@ export async function POST(request) {
         total: total.toFixed(2),
         shipping_address,
         shipping_city,
-        courier: selected.courier,
-        courier_cost: selected.cost,
+        courier: aiCourier.courier,
+        courier_cost: parseFloat(aiCourier.cost) || 2.50,
         estimated_delivery: estimatedDelivery,
-        ai_courier_reason: total > 300
-          ? 'High value order — DHL selected for reliability'
-          : 'Aramex selected — most cost efficient for this order'
+        ai_courier_reason: aiCourier.reasoning
       })
       .select()
       .single()
