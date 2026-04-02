@@ -52,7 +52,7 @@ export async function POST(request) {
       .from('orders')
       .insert({
         user_id,
-        status: 'confirmed',
+        status: 'pending_payment',
         channel,
         total: total.toFixed(2),
         shipping_address,
