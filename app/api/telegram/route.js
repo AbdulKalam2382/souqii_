@@ -188,48 +188,94 @@ async function finalizeDraft(orderId) {
 }
 
 // ──────────────────────────────────────────
-// Natural Language Intent Parsing
+// Intent Parsing: Keyword-first, AI-enhanced
 // ──────────────────────────────────────────
-async function parseUserIntent(userMessage) {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    generationConfig: { responseMimeType: "application/json" }
-  });
+function parseIntentFromKeywords(userMessage) {
+  const msg = userMessage.toLowerCase().trim();
 
-  var prompt = 'You are the AI chatbot for Souqii, a PC parts store. ';
-  prompt += 'Analyze the customer message and determine exactly what they want.\n\n';
-  prompt += 'Customer message: "' + userMessage + '"\n\n';
-  prompt += 'RULES:\n';
-  prompt += '1. If they say "Track ID 33" or "Where is my order", the intent is "track".\n';
-  prompt += '2. If they say "Buy 33" or "Order ID 33", the intent is "order" and productId is 33.\n';
-  prompt += '3. If they say "I want to buy a GPU" or "Looking for RAM", the intent is "search".\n';
-  prompt += '4. If they say "is this compatible with...", the intent is "compatibility".\n\n';
-  prompt += 'Return exactly this JSON:\n';
-  prompt += '{\n';
-  prompt += '  "intent": "browse" | "search" | "order" | "track" | "compatibility" | "greeting" | "help" | "unknown",\n';
-  prompt += '  "searchQuery": "extracted terms to search specifically",\n';
-  prompt += '  "productId": null or integer (if explicitly purchasing an ID),\n';
-  prompt += '  "orderId": null or integer (if tracking an ID),\n';
-  prompt += '  "quantity": 1,\n';
-  prompt += '  "friendlyReply": "A short friendly prefix acknowledgment"\n';
-  prompt += '}\n';
+  // Greetings
+  if (/^(hi|hello|hey|hola|yo|start|good morning|good evening|assalam|salam)/i.test(msg)) {
+    return { intent: 'greeting', searchQuery: '', productId: null, orderId: null, quantity: 1, friendlyReply: '' };
+  }
 
+  // Track order: "track 123" or "where is my order"
+  const trackMatch = msg.match(/track\s+(\d+)/i);
+  if (trackMatch) {
+    return { intent: 'track', searchQuery: '', productId: null, orderId: parseInt(trackMatch[1]), quantity: 1, friendlyReply: '' };
+  }
+  if (/where.*(order|package|shipment)/i.test(msg)) {
+    return { intent: 'track', searchQuery: '', productId: null, orderId: null, quantity: 1, friendlyReply: '' };
+  }
+
+  // Buy specific product: "buy 3", "order 5", "purchase 12"
+  const buyMatch = msg.match(/(?:buy|order|purchase|get)\s+(\d+)/i);
+  if (buyMatch) {
+    return { intent: 'order', searchQuery: '', productId: parseInt(buyMatch[1]), orderId: null, quantity: 1, friendlyReply: '' };
+  }
+
+  // Compatibility: "compatible 1 5", "compare 3 and 7"
+  const compatMatch = msg.match(/(?:compatible|compare|compatibility)\s+(\d+)\s+(?:and\s+)?(\d+)/i);
+  if (compatMatch) {
+    return { intent: 'compatibility', searchQuery: '', productId: null, orderId: null, part1Id: parseInt(compatMatch[1]), part2Id: parseInt(compatMatch[2]), quantity: 1, friendlyReply: '' };
+  }
+
+  // Browse: "browse", "show all", "catalog", "products"
+  if (/^(browse|catalog|show all|all products|products|list)/i.test(msg)) {
+    return { intent: 'browse', searchQuery: '', productId: null, orderId: null, quantity: 1, friendlyReply: '' };
+  }
+
+  // Search: anything with buying/shopping intent or component names
+  if (/want|need|looking|find|search|show|buy|gpu|cpu|ram|motherboard|psu|ssd|power supply|gaming|processor|graphics|memory|storage/i.test(msg)) {
+    // Extract the useful search terms
+    let searchTerms = msg
+      .replace(/i\s+(want|need|am looking|would like)\s+(to\s+)?(buy|get|find|order|purchase|have)?\s*/gi, '')
+      .replace(/^(show|find|search|get)\s+(me\s+)?/gi, '')
+      .replace(/\s+a\s+/g, ' ')
+      .replace(/for my pc/gi, '')
+      .replace(/please/gi, '')
+      .trim();
+    
+    if (!searchTerms || searchTerms.length < 2) searchTerms = msg;
+    
+    return { intent: 'search', searchQuery: searchTerms, productId: null, orderId: null, quantity: 1, friendlyReply: 'Let me find that for you!' };
+  }
+
+  // Help
+  if (/^(help|menu|commands|what can you do)/i.test(msg)) {
+    return { intent: 'help', searchQuery: '', productId: null, orderId: null, quantity: 1, friendlyReply: '' };
+  }
+
+  // Default: treat as search (the user is probably describing what they want)
+  return { intent: 'search', searchQuery: msg, productId: null, orderId: null, quantity: 1, friendlyReply: 'Let me search for that!' };
+}
+
+// Optional AI enhancement (non-blocking - if AI fails, keyword result is used)
+async function enhanceWithAI(keywordIntent, userMessage) {
   try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    var prompt = 'You are the AI chatbot for Souqii, a PC parts store. ';
+    prompt += 'Analyze the customer message and extract the best search keywords.\n\n';
+    prompt += 'Customer message: "' + userMessage + '"\n\n';
+    prompt += 'Return JSON: { "searchQuery": "optimized search terms", "friendlyReply": "short friendly reply" }\n';
+
     const result = await model.generateContent(prompt);
     let text = result.response.text().trim();
-    if (text.startsWith("```json")) {
-       text = text.substring(7);
-       if (text.endsWith("```")) text = text.substring(0, text.length - 3);
-    } else if (text.startsWith("```")) {
-       text = text.substring(3);
-       if (text.endsWith("```")) text = text.substring(0, text.length - 3);
-    }
-    return JSON.parse(text.trim());
+    if (text.startsWith("```json")) text = text.substring(7);
+    if (text.startsWith("```")) text = text.substring(3);
+    if (text.endsWith("```")) text = text.substring(0, text.length - 3);
+    
+    const aiData = JSON.parse(text.trim());
+    if (aiData.searchQuery) keywordIntent.searchQuery = aiData.searchQuery;
+    if (aiData.friendlyReply) keywordIntent.friendlyReply = aiData.friendlyReply;
   } catch (err) {
-    console.error("AI Parse Error:", err);
-    return { intent: "unknown" };
+    console.error("AI enhancement failed (using keyword fallback):", err.message);
   }
+  return keywordIntent;
 }
 
 export async function POST(request) {
@@ -315,9 +361,14 @@ export async function POST(request) {
     }
 
     // ──────────────────────────────
-    // Intent Detection
+    // Intent Detection (Keyword-first, AI-enhanced)
     // ──────────────────────────────
-    const intent = await parseUserIntent(userMessage);
+    let intent = parseIntentFromKeywords(userMessage);
+    
+    // Try to enhance with AI (won't block if AI fails)
+    if (intent.intent === 'search') {
+      intent = await enhanceWithAI(intent, userMessage);
+    }
 
     if (intent.friendlyReply && intent.intent !== 'greeting') {
       await sendMessage(chatId, "🤖 " + intent.friendlyReply);
