@@ -26,9 +26,13 @@ export default function Home() {
   const [toast, setToast] = useState('');
   const [addedIds, setAddedIds] = useState(new Set());
 
-  // Shipping form
-  const [shippingAddress, setShippingAddress] = useState('');
-  const [shippingCity, setShippingCity] = useState('Kuwait City');
+  // Shipping form - Kuwait 6-part format
+  const [doorNumber, setDoorNumber] = useState('');
+  const [street, setStreet] = useState('');
+  const [block, setBlock] = useState('');
+  const [area, setArea] = useState('');
+  const [city, setCity] = useState('');
+  const [pincode, setPincode] = useState('');
   const [checkingOut, setCheckingOut] = useState(false);
 
   // ─── Load products ───
@@ -165,8 +169,12 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: cart.map(item => ({ product_id: item.id, quantity: item.qty })),
-          shipping_address: shippingAddress,
-          shipping_city: shippingCity || 'Kuwait City',
+          door_number: doorNumber,
+          street: street,
+          block: block,
+          area: area,
+          city: city,
+          pincode: pincode,
           channel: 'website'
         })
       });
@@ -220,19 +228,19 @@ export default function Home() {
     setTimeout(() => setToast(''), 2500);
   };
 
-  // ─── Get spec tags for a product ───
-  const getSpecTags = (specs) => {
+  // ─── Get organized specs list for a product ───
+  const getOrganizedSpecs = (specs) => {
     if (!specs) return [];
-    const tags = [];
-    if (specs.vram) tags.push(specs.vram);
-    if (specs.cores) tags.push(specs.cores + ' Cores');
-    if (specs.socket) tags.push(specs.socket);
-    if (specs.chipset) tags.push(specs.chipset);
-    if (specs.type) tags.push(specs.type);
-    if (specs.capacity) tags.push(specs.capacity);
-    if (specs.wattage) tags.push(specs.wattage);
-    if (specs.tdp) tags.push('TDP: ' + specs.tdp);
-    return tags.slice(0, 4);
+    const list = [];
+    if (specs.socket) list.push({ label: 'Socket', val: specs.socket });
+    if (specs.cores) list.push({ label: 'Cores', val: specs.cores });
+    if (specs.vram) list.push({ label: 'VRAM', val: specs.vram });
+    if (specs.chipset) list.push({ label: 'Chipset', val: specs.chipset });
+    if (specs.type) list.push({ label: 'Type', val: specs.type });
+    if (specs.capacity) list.push({ label: 'Capacity', val: specs.capacity });
+    if (specs.wattage) list.push({ label: 'Power', val: specs.wattage });
+    if (specs.tdp) list.push({ label: 'TDP', val: specs.tdp });
+    return list;
   };
 
   // ─── RENDER ───
@@ -317,9 +325,11 @@ export default function Home() {
                   {product.categories?.name || 'PC Part'}
                 </div>
                 <h3>{product.name}</h3>
-                <div className="product-specs">
-                  {getSpecTags(product.specs).map((tag, i) => (
-                    <span className="spec-tag" key={i}>{tag}</span>
+                <div className="product-specs" style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                  {getOrganizedSpecs(product.specs).map((s, i) => (
+                    <div key={i} style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      <strong style={{ color: 'var(--text)' }}>{s.label}:</strong> {s.val}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -327,9 +337,6 @@ export default function Home() {
                 <div>
                   <div className="product-price">
                     KD {product.price} <span>/ unit</span>
-                  </div>
-                  <div className="product-stock">
-                    {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
                   </div>
                 </div>
                 <button
@@ -382,24 +389,54 @@ export default function Home() {
 
         {cart.length > 0 && (
           <>
-            {/* SHIPPING FORM */}
-            <div className="shipping-form">
-              <div className="form-group">
-                <label>Shipping Address</label>
+            {/* SHIPPING FORM - KUWAIT FORMAT */}
+            <div className="shipping-form" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label>Door / House Number</label>
                 <input
-                  placeholder="Block 5, Street 10, House 22, Salmiya"
-                  value={shippingAddress}
-                  onChange={e => setShippingAddress(e.target.value)}
-                  id="shipping-address"
+                  placeholder="e.g., House 22"
+                  value={doorNumber}
+                  onChange={e => setDoorNumber(e.target.value)}
+                />
+              </div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label>Street Name / Number</label>
+                <input
+                  placeholder="e.g., Street 10"
+                  value={street}
+                  onChange={e => setStreet(e.target.value)}
                 />
               </div>
               <div className="form-group">
-                <label>City</label>
+                <label>Block</label>
                 <input
-                  placeholder="Kuwait City"
-                  value={shippingCity}
-                  onChange={e => setShippingCity(e.target.value)}
-                  id="shipping-city"
+                  placeholder="e.g., Block 5"
+                  value={block}
+                  onChange={e => setBlock(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Area</label>
+                <input
+                  placeholder="e.g., Salmiya"
+                  value={area}
+                  onChange={e => setArea(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>City / Governorate</label>
+                <input
+                  placeholder="e.g., Hawalli"
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Pincode (Optional)</label>
+                <input
+                  placeholder="e.g., 20001"
+                  value={pincode}
+                  onChange={e => setPincode(e.target.value)}
                 />
               </div>
             </div>

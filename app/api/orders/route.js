@@ -5,7 +5,7 @@ import { selectBestCourier } from '@/lib/courier'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { user_id, items, shipping_address, shipping_city, channel = 'website' } = body
+    const { user_id, items, door_number, street, block, area, city, pincode, channel = 'website' } = body
 
     if (!items || items.length === 0)
       return NextResponse.json({ error: 'No items in order' }, { status: 400 })
@@ -34,7 +34,7 @@ export async function POST(request) {
 
     // Call the exact same AI Courier logic as the Telegram Bot!
     const orderDetails = {
-      destinationCity: shipping_city || 'Kuwait City',
+      destinationCity: city || 'Kuwait City',
       orderValue: total,
       packageWeight: items.length * 1.5 // Rough estimation for weight
     }
@@ -48,6 +48,9 @@ export async function POST(request) {
     deliveryDate.setDate(deliveryDate.getDate() + offsetDays)
     const estimatedDelivery = deliveryDate.toISOString().split('T')[0]
 
+    // Form fallback address string for legacy row
+    const oldFormatAddress = `House ${door_number}, St ${street}, Blk ${block}, ${area}`;
+
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
@@ -55,8 +58,14 @@ export async function POST(request) {
         status: 'pending_payment',
         channel,
         total: total.toFixed(2),
-        shipping_address,
-        shipping_city,
+        // Legacy column mapping fallback + new explicit columns
+        shipping_address: oldFormatAddress,
+        shipping_city: city,
+        door_number,
+        street,
+        block,
+        area,
+        pincode,
         courier: aiCourier.courier,
         courier_cost: parseFloat(aiCourier.cost) || 2.50,
         estimated_delivery: estimatedDelivery,

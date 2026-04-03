@@ -24,28 +24,32 @@ async function sendMessage(chatId, text, options) {
   });
 }
 
-// Helper: format a product card as text
+// Helper: get clean organized specs for the bot without stock display
 function formatProduct(p) {
   var msg = "🖥 <b>" + p.name + "</b>\n";
   msg += "💰 Price: KD " + p.price + "\n";
-  msg += "📦 Stock: " + (p.stock > 0 ? p.stock + " available" : "Out of stock") + "\n";
+  
+  // Hide stock as requested, just cleanly display specs
   if (p.specs) {
-    var specsStr = typeof p.specs === 'string' ? p.specs : JSON.stringify(p.specs);
-    if (specsStr.length > 200) specsStr = specsStr.substring(0, 200) + "...";
-    msg += "📋 Specs: " + specsStr + "\n";
+    msg += "\n<b>Specifications:</b>\n";
+    if (p.specs.socket) msg += "• Socket: " + p.specs.socket + "\n";
+    if (p.specs.cores) msg += "• Cores: " + p.specs.cores + " Cores\n";
+    if (p.specs.vram) msg += "• VRAM: " + p.specs.vram + "\n";
+    if (p.specs.chipset) msg += "• Chipset: " + p.specs.chipset + "\n";
+    if (p.specs.type) msg += "• Type: " + p.specs.type + "\n";
+    if (p.specs.capacity) msg += "• Capacity: " + p.specs.capacity + "\n";
+    if (p.specs.wattage) msg += "• Power: " + p.specs.wattage + "\n";
+    if (p.specs.tdp) msg += "• TDP: " + p.specs.tdp + "\n";
   }
-  msg += "🆔 Product ID: " + p.id;
+  msg += "\n💡 Type <b>Buy " + p.id + "</b> to order this item.";
   return msg;
 }
 
 // ──────────────────────────────────────────
-// PENDING CART: Store in Supabase via 
-// a simple "telegram_pending_orders" approach
-// using the existing orders table with 
-// status='draft' and telegram_chat_id
+// STATE MACHINE: Multi-step address collection
+// using the 'bot_state' and 'orders' columns
 // ──────────────────────────────────────────
 
-// Check if user has a pending draft (waiting for address)
 async function getPendingDraft(chatId) {
   const { data, error } = await supabaseAdmin
     .from('orders')
@@ -56,23 +60,17 @@ async function getPendingDraft(chatId) {
     .limit(1)
     .maybeSingle();
   
-  if (error) {
-    console.error("Error checking pending draft:", error);
-    return null;
-  }
+  if (error) return null;
   return data;
 }
 
-// Create a draft order (product selected, waiting for address)
 async function createDraftOrder(chatId, productId, qty) {
-  // First clean up any old drafts for this chat
   await supabaseAdmin
     .from('orders')
     .delete()
     .eq('telegram_chat_id', chatId.toString())
     .eq('status', 'draft');
 
-  // Get product info
   const { data: product, error: prodErr } = await supabase
     .from('products')
     .select('*')
@@ -80,25 +78,24 @@ async function createDraftOrder(chatId, productId, qty) {
     .single();
   
   if (prodErr || !product) return { error: 'Product not found' };
-  if (product.stock < qty) return { error: `Only ${product.stock} units in stock` };
 
   const total = (product.price * qty).toFixed(2);
 
-  // Create draft order
   const { data: order, error: orderErr } = await supabaseAdmin
     .from('orders')
     .insert({
       status: 'draft',
       channel: 'telegram',
       total: total,
-      telegram_chat_id: chatId.toString()
+      telegram_chat_id: chatId.toString(),
+      // Use bot_state if column exists, otherwise we wait for the user to add it.
+      bot_state: 'awaiting_door' 
     })
     .select()
     .single();
 
   if (orderErr) return { error: orderErr.message };
 
-  // Add items
   await supabaseAdmin.from('order_items').insert({
     order_id: order.id,
     product_id: product.id,
@@ -109,9 +106,50 @@ async function createDraftOrder(chatId, productId, qty) {
   return { order, product, total };
 }
 
-// Finalize draft with address and generate Stripe link
-async function finalizeDraft(orderId, address, city) {
-  // Get AI courier
+async function advanceDraftState(orderId, currentState, userInput) {
+  let updateData = {};
+  let nextStateLabel = "";
+  let botReply = "";
+
+  switch (currentState) {
+    case 'awaiting_door':
+      updateData = { door_number: userInput, bot_state: 'awaiting_street' };
+      nextStateLabel = "awaiting_street";
+      botReply = "Got the House/Door number. Next, what is your **Street Name or Number**?";
+      break;
+    case 'awaiting_street':
+      updateData = { street: userInput, bot_state: 'awaiting_block' };
+      nextStateLabel = "awaiting_block";
+      botReply = "Got the Street. Next, what is your **Block Number**?";
+      break;
+    case 'awaiting_block':
+      updateData = { block: userInput, bot_state: 'awaiting_area' };
+      nextStateLabel = "awaiting_area";
+      botReply = "Got the Block. Next, what **Area** in Kuwait is this? (e.g. Salmiya, Hawally)";
+      break;
+    case 'awaiting_area':
+      updateData = { area: userInput, bot_state: 'awaiting_city' };
+      nextStateLabel = "awaiting_city";
+      botReply = "Got the Area. What is the **City / Governorate**?";
+      break;
+    case 'awaiting_city':
+      updateData = { shipping_city: userInput, bot_state: 'awaiting_pincode' };
+      nextStateLabel = "awaiting_pincode";
+      botReply = "Got the Governorate. Finally, what is your **Pincode / Postal Code**? (Type 'skip' if you don't know it).";
+      break;
+    case 'awaiting_pincode':
+      updateData = { pincode: userInput === 'skip' ? '' : userInput, bot_state: 'completed' };
+      nextStateLabel = "completed";
+      break;
+    default:
+      return { error: 'Invalid state' };
+  }
+
+  const { error } = await supabaseAdmin.from('orders').update(updateData).eq('id', orderId);
+  return { error: error ? error.message : null, nextState: nextStateLabel, botReply };
+}
+
+async function finalizeDraft(orderId) {
   const { data: orderData } = await supabaseAdmin
     .from('orders')
     .select('*, order_items(*, products(*))')
@@ -120,19 +158,20 @@ async function finalizeDraft(orderId, address, city) {
 
   if (!orderData) return { error: 'Draft not found' };
 
+  // Format old string block for legacy reference
+  const compiledAddress = `House ${orderData.door_number || ''}, St ${orderData.street || ''}, Blk ${orderData.block || ''}, ${orderData.area || ''}, ${orderData.pincode || ''}`;
+
   const aiCourier = await selectBestCourier({
-    destinationCity: city,
+    destinationCity: orderData.shipping_city,
     orderValue: parseFloat(orderData.total),
     packageWeight: 1.5
   });
 
-  // Update draft to pending_payment
   const { error: upErr } = await supabaseAdmin
     .from('orders')
     .update({
       status: 'pending_payment',
-      shipping_address: address,
-      shipping_city: city,
+      shipping_address: compiledAddress,
       courier: aiCourier.courier,
       courier_cost: aiCourier.cost,
       estimated_delivery: aiCourier.estimatedDays,
@@ -142,14 +181,15 @@ async function finalizeDraft(orderId, address, city) {
 
   if (upErr) return { error: upErr.message };
 
-  // Generate Stripe link
   const baseUrl = "https://souqii-one.vercel.app";
   const checkoutUrl = await createCheckoutSession(orderId, parseFloat(orderData.total), baseUrl);
 
-  return { checkoutUrl, courier: aiCourier, orderData };
+  return { checkoutUrl, courier: aiCourier, orderData, compiledAddress };
 }
 
-// Use Gemini to understand what the user wants from their natural message
+// ──────────────────────────────────────────
+// Natural Language Intent Parsing
+// ──────────────────────────────────────────
 async function parseUserIntent(userMessage) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
@@ -157,280 +197,177 @@ async function parseUserIntent(userMessage) {
     generationConfig: { responseMimeType: "application/json" }
   });
 
-  var prompt = 'You are the AI chatbot for Souqii, a PC parts e-commerce store in Kuwait. ';
-  prompt += 'Analyze this customer message and determine their intent.\n\n';
+  var prompt = 'You are the AI chatbot for Souqii, a PC parts store. ';
+  prompt += 'Analyze the customer message and determine exactly what they want.\n\n';
   prompt += 'Customer message: "' + userMessage + '"\n\n';
+  prompt += 'RULES:\n';
+  prompt += '1. If they say "Track ID 33" or "Where is my order", the intent is "track".\n';
+  prompt += '2. If they say "Buy 33" or "Order ID 33", the intent is "order" and productId is 33.\n';
+  prompt += '3. If they say "I want to buy a GPU" or "Looking for RAM", the intent is "search".\n';
+  prompt += '4. If they say "is this compatible with...", the intent is "compatibility".\n\n';
   prompt += 'Return exactly this JSON:\n';
   prompt += '{\n';
-  prompt += '  "intent": "browse" | "search" | "order" | "track" | "compatibility" | "recommend" | "greeting" | "help" | "address" | "unknown",\n';
-  prompt += '  "searchQuery": "extracted search terms if intent is search, otherwise empty string",\n';
-  prompt += '  "productId": null or integer if they mention a specific product ID,\n';
-  prompt += '  "shippingAddress": "extracted shipping address if this looks like an address, otherwise null",\n';
-  prompt += '  "shippingCity": "extracted city in Kuwait (default: Kuwait City) if mentioned, otherwise null",\n';
-  prompt += '  "orderId": null or integer if they want to track an order,\n';
-  prompt += '  "part1Id": null or integer for compatibility check part 1,\n';
-  prompt += '  "part2Id": null or integer for compatibility check part 2,\n';
-  prompt += '  "quantity": 1 (default) or the number they want to buy,\n';
-  prompt += '  "friendlyReply": "A short friendly one-liner acknowledging what they want"\n';
-  prompt += '}\n\n';
-  prompt += 'IMPORTANT: If the message looks like a physical address or location (contains block, street, area name, etc), set intent to "address" and put the full text in shippingAddress.';
+  prompt += '  "intent": "browse" | "search" | "order" | "track" | "compatibility" | "greeting" | "help" | "unknown",\n';
+  prompt += '  "searchQuery": "extracted terms to search specifically",\n';
+  prompt += '  "productId": null or integer (if explicitly purchasing an ID),\n';
+  prompt += '  "orderId": null or integer (if tracking an ID),\n';
+  prompt += '  "quantity": 1,\n';
+  prompt += '  "friendlyReply": "A short friendly prefix acknowledgment"\n';
+  prompt += '}\n';
 
   try {
     const result = await model.generateContent(prompt);
     return JSON.parse(result.response.text());
-  } catch (err) {
-    console.error("Intent parsing error:", err);
-    return { intent: "unknown", searchQuery: "", friendlyReply: "I didn't quite catch that!" };
+  } catch {
+    return { intent: "unknown" };
   }
 }
 
-// ============================
-// MAIN WEBHOOK HANDLER
-// ============================
 export async function POST(request) {
   try {
     const body = await request.json();
 
-    // Telegram sends updates with a "message" field
-    if (!body.message) {
-      return NextResponse.json({ ok: true });
-    }
+    if (!body.message) return NextResponse.json({ ok: true });
 
     const chatId = body.message.chat.id;
     const userName = body.message.from.first_name || "Friend";
     const userMessage = (body.message.text || "").trim();
 
-    if (!userMessage) {
-      return NextResponse.json({ ok: true });
-    }
+    if (!userMessage) return NextResponse.json({ ok: true });
 
-    // ──────────────────────────────
-    // Handle /start command
-    // ──────────────────────────────
+    // Handle initial /start
     if (userMessage === '/start') {
       var welcome = "👋 Welcome to <b>Souqii</b>, " + userName + "!\n\n";
-      welcome += "I'm your AI-powered PC parts assistant. Here's what I can do:\n\n";
-      welcome += "🔍 <b>Search</b> — Just type what you want!\n";
-      welcome += '   Example: "gaming GPU under $500"\n\n';
-      welcome += "📦 <b>Browse</b> — Type \"browse\" to see all products\n\n";
-      welcome += "🛒 <b>Order</b> — Type \"order [product ID]\"\n";
-      welcome += '   Example: "order 3"\n\n';
-      welcome += "🔧 <b>Compatibility</b> — Type \"compatible [ID1] [ID2]\"\n";
-      welcome += '   Example: "compatible 1 5"\n\n';
-      welcome += "📍 <b>Track</b> — Type \"track [order ID]\"\n";
-      welcome += '   Example: "track 101"\n\n';
-      welcome += "Just type naturally — I understand plain English! 🚀";
+      welcome += "I'm your AI-powered PC Parts Assistant. I can help you find products, check compatibility, and place orders directly here.\n\n";
+      welcome += "Just type what you're looking for natively, e.g.:\n";
+      welcome += "<i>\"I want to buy a gaming GPU\"</i> or <i>\"Do you have DDR5 RAM?\"</i>";
       await sendMessage(chatId, welcome);
       return NextResponse.json({ ok: true });
     }
 
     // ──────────────────────────────
-    // CHECK: Does user have a pending draft order waiting for address?
+    // CHECK if user is inside a multi-step address collection flow
     // ──────────────────────────────
     const pendingDraft = await getPendingDraft(chatId);
 
-    if (pendingDraft) {
-      // User has a draft order — this message is probably their address
-      // Use AI to check if this looks like an address or an explicit cancel
+    if (pendingDraft && pendingDraft.bot_state && pendingDraft.bot_state !== 'completed') {
       const lowerMsg = userMessage.toLowerCase();
       
       if (lowerMsg === 'cancel' || lowerMsg === '/cancel') {
-        // Cancel the draft
         await supabaseAdmin.from('order_items').delete().eq('order_id', pendingDraft.id);
         await supabaseAdmin.from('orders').delete().eq('id', pendingDraft.id);
-        await sendMessage(chatId, "🚫 Order cancelled. Feel free to browse again!");
+        await sendMessage(chatId, "🚫 Order cancelled. Need anything else?");
         return NextResponse.json({ ok: true });
       }
 
-      // Treat the message as the shipping address
-      const intent = await parseUserIntent(userMessage);
-      const address = intent.shippingAddress || userMessage;
-      const city = intent.shippingCity || "Kuwait City";
-
-      await sendMessage(chatId, "📍 Got your address! Setting up payment...");
-
-      const result = await finalizeDraft(pendingDraft.id, address, city);
+      // Advance the state machine
+      const result = await advanceDraftState(pendingDraft.id, pendingDraft.bot_state, userMessage);
       
       if (result.error) {
-        await sendMessage(chatId, "❌ Error: " + result.error);
+        await sendMessage(chatId, "❌ Setup encountered an anomaly. Type /cancel to abort or try again.");
         return NextResponse.json({ ok: true });
       }
 
-      // Get item names for the confirmation
-      const itemNames = pendingDraft.order_items
-        ? pendingDraft.order_items.map(oi => oi.products ? oi.products.name : 'Product').join(', ')
-        : 'Your items';
-
-      var confirm = "🛒 <b>Order Ready!</b>\n\n";
-      confirm += "📦 " + itemNames + "\n";
-      confirm += "💰 Total: KD " + pendingDraft.total + "\n";
-      confirm += "📍 Shipping to: " + address + ", " + city + "\n";
-      confirm += "🚚 Courier: " + result.courier.courier + " (" + result.courier.estimatedDays + ")\n\n";
-      confirm += "Complete your payment below:";
-
-      await sendMessage(chatId, confirm, {
-        reply_markup: {
-          inline_keyboard: [[
-            { text: "💳 Pay Now (Secure Stripe)", url: result.checkoutUrl }
-          ]]
-        }
-      });
-
-      return NextResponse.json({ ok: true });
-    }
-
-    // ──────────────────────────────
-    // Use AI to understand the message
-    // ──────────────────────────────
-    const intent = await parseUserIntent(userMessage);
-
-    // Send the friendly acknowledgment first
-    if (intent.friendlyReply && intent.intent !== 'greeting') {
-      await sendMessage(chatId, "🤖 " + intent.friendlyReply);
-    }
-
-    // ──────────────────────────────
-    // GREETING
-    // ──────────────────────────────
-    if (intent.intent === 'greeting') {
-      var hi = "Hey " + userName + "! 👋 Welcome to Souqii!\n";
-      hi += "I'm here to help you find the perfect PC parts. Just tell me what you need!";
-      await sendMessage(chatId, hi);
-    }
-
-    // ──────────────────────────────
-    // BROWSE — show all products
-    // ──────────────────────────────
-    else if (intent.intent === 'browse') {
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, name, price, stock')
-        .order('id', { ascending: true });
-
-      if (!products || products.length === 0) {
-        await sendMessage(chatId, "😔 No products found in the store right now.");
-      } else {
-        var list = "📋 <b>Souqii Product Catalog</b>\n\n";
-        for (var i = 0; i < products.length; i++) {
-          var p = products[i];
-          list += "• <b>" + p.name + "</b> — KD " + p.price + " (ID: " + p.id + ")\n";
-        }
-        list += "\nType \"order [ID]\" to buy, or ask me about any product!";
-        await sendMessage(chatId, list);
-      }
-    }
-
-    // ──────────────────────────────
-    // SEARCH — AI-powered search
-    // ──────────────────────────────
-    else if (intent.intent === 'search') {
-      var query = intent.searchQuery || userMessage;
-      var results = await aiSmartSearch(query);
-
-      if (!results || results.length === 0) {
-        await sendMessage(chatId, "😔 No products matched \"" + query + "\". Try different keywords!");
-      } else {
-        await sendMessage(chatId, "🔍 Found " + results.length + " result(s):\n");
-        // Show max 5 results
-        var limit = Math.min(results.length, 5);
-        for (var j = 0; j < limit; j++) {
-          await sendMessage(chatId, formatProduct(results[j]));
-        }
-        if (results.length > 5) {
-          await sendMessage(chatId, "...and " + (results.length - 5) + " more. Narrow your search to see them!");
-        }
-      }
-    }
-
-    // ──────────────────────────────
-    // ORDER — place an order (Step 1: create draft, ask for address)
-    // ──────────────────────────────
-    else if (intent.intent === 'order') {
-      var productId = intent.productId;
-      var qty = intent.quantity || 1;
-
-      if (!productId) {
-        await sendMessage(chatId, "🛒 Please specify a product ID. Example: \"order 3\"");
+      if (result.nextState !== 'completed') {
+        await sendMessage(chatId, result.botReply);
         return NextResponse.json({ ok: true });
-      }
+      } else {
+        // Completed the 6 steps! Let's finalize it.
+        await sendMessage(chatId, "⏳ Information secured. Generating invoice and querying optimal courier...");
 
-      // Check if they also provided an address in the same message
-      if (intent.shippingAddress) {
-        // Full order in one message! Create draft and finalize immediately
-        const draftResult = await createDraftOrder(chatId, productId, qty);
-        if (draftResult.error) {
-          await sendMessage(chatId, "❌ " + draftResult.error);
-          return NextResponse.json({ ok: true });
-        }
-
-        const finalResult = await finalizeDraft(
-          draftResult.order.id,
-          intent.shippingAddress,
-          intent.shippingCity || "Kuwait City"
-        );
-
+        const finalResult = await finalizeDraft(pendingDraft.id);
+        
         if (finalResult.error) {
-          await sendMessage(chatId, "❌ " + finalResult.error);
+          await sendMessage(chatId, "❌ Checkout creation failed: " + finalResult.error);
           return NextResponse.json({ ok: true });
         }
 
-        var oneshot = "🛒 <b>Order Ready!</b>\n\n";
-        oneshot += "📦 " + draftResult.product.name + " x" + qty + "\n";
-        oneshot += "💰 Total: KD " + draftResult.total + "\n";
-        oneshot += "📍 Shipping to: " + intent.shippingAddress + "\n";
-        oneshot += "🚚 Courier: " + finalResult.courier.courier + "\n\n";
-        oneshot += "Complete your payment below:";
+        const itemNames = pendingDraft.order_items
+          ? pendingDraft.order_items.map(oi => oi.products ? oi.products.name : 'Product').join(', ')
+          : 'Your items';
 
-        await sendMessage(chatId, oneshot, {
+        var confirm = "🛒 <b>Order Invoice Ready!</b>\n\n";
+        confirm += "📦 Item: " + itemNames + "\n";
+        confirm += "💰 Total: KD " + pendingDraft.total + "\n";
+        confirm += "📍 Ships to: " + finalResult.compiledAddress + "\n";
+        confirm += "🚚 Optimal Courier: " + finalResult.courier.courier + " (" + finalResult.courier.estimatedDays + ")\n\n";
+        confirm += "Your order is ready for payment:";
+
+        await sendMessage(chatId, confirm, {
           reply_markup: {
             inline_keyboard: [[
-              { text: "💳 Pay Now (Secure Stripe)", url: finalResult.checkoutUrl }
+              { text: "💳 Proceed to Payment", url: finalResult.checkoutUrl }
             ]]
           }
         });
 
         return NextResponse.json({ ok: true });
       }
+    }
 
-      // No address provided — create a draft and ask for address
-      const draftResult = await createDraftOrder(chatId, productId, qty);
+    // ──────────────────────────────
+    // Intent Detection
+    // ──────────────────────────────
+    const intent = await parseUserIntent(userMessage);
+
+    if (intent.friendlyReply && intent.intent !== 'greeting') {
+      await sendMessage(chatId, "🤖 " + intent.friendlyReply);
+    }
+
+    if (intent.intent === 'search' || intent.intent === 'browse') {
+      var query = intent.searchQuery || userMessage;
+      var results = await aiSmartSearch(query);
+
+      if (!results || results.length === 0) {
+        await sendMessage(chatId, "😔 No parts found matching that description. Tell me what else you need.");
+      } else {
+        await sendMessage(chatId, "🔍 Found these optimized matches for you:\n");
+        var limit = Math.min(results.length, 4);
+        for (var j = 0; j < limit; j++) {
+          await sendMessage(chatId, formatProduct(results[j]));
+        }
+      }
+    }
+    
+    // Explicit purchase intent
+    else if (intent.intent === 'order') {
+      var productId = intent.productId;
+
+      // Handle raw "Buy 3" bypassing AI parse 
+      if (!productId) {
+         const match = userMessage.match(/buy\s+(\d+)/i) || userMessage.match(/order\s+(\d+)/i);
+         if (match) productId = parseInt(match[1]);
+      }
+
+      if (!productId) {
+        await sendMessage(chatId, "🛒 Specify the exact Item ID you want to secure. Example: \"Buy 3\"");
+        return NextResponse.json({ ok: true });
+      }
+
+      const draftResult = await createDraftOrder(chatId, productId, intent.quantity || 1);
       if (draftResult.error) {
         await sendMessage(chatId, "❌ " + draftResult.error);
         return NextResponse.json({ ok: true });
       }
 
-      var askAddr = "✅ <b>Added to your order:</b>\n\n";
-      askAddr += "📦 " + draftResult.product.name + " x" + qty + "\n";
-      askAddr += "💰 Total: KD " + draftResult.total + "\n\n";
-      askAddr += "📍 <b>Where should I ship this?</b>\n";
-      askAddr += "Just type your address (e.g., \"Block 5, Salmiya\")\n\n";
-      askAddr += "Type /cancel to cancel the order.";
+      var askAddr = "✅ <b>Item Selected:</b> " + draftResult.product.name + "\n";
+      askAddr += "💰 Cost: KD " + draftResult.total + "\n\n";
+      askAddr += "Let's capture your exact delivery coordinates.\n\n";
+      askAddr += "📍 What is your <b>Door or House Number</b>?";
       
       await sendMessage(chatId, askAddr);
     }
 
-    // ──────────────────────────────
-    // TRACK — track an order
-    // ──────────────────────────────
     else if (intent.intent === 'track') {
       var trackOrderId = intent.orderId;
-      if (!trackOrderId) {
-        // Try to find their most recent order by chat ID
-        const { data: recentOrder } = await supabaseAdmin
-          .from('orders')
-          .select('*, order_items(*, products(name, price))')
-          .eq('telegram_chat_id', chatId.toString())
-          .neq('status', 'draft')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
 
-        if (recentOrder) {
-          trackOrderId = recentOrder.id;
-        } else {
-          await sendMessage(chatId, "📍 Please provide your order ID. Example: \"track 101\"");
-          return NextResponse.json({ ok: true });
-        }
+      if (!trackOrderId) {
+         const match = userMessage.match(/track\s+([a-zA-Z0-9\-]+)/i);
+         if (match) trackOrderId = match[1];
+         else {
+            await sendMessage(chatId, "📍 Please supply the specific tracker ID.");
+            return NextResponse.json({ ok: true });
+         }
       }
 
       const { data: orderData, error: trackErr } = await supabaseAdmin
@@ -440,83 +377,61 @@ export async function POST(request) {
         .single();
 
       if (trackErr || !orderData) {
-        await sendMessage(chatId, "❌ Order #" + trackOrderId + " not found.");
+        await sendMessage(chatId, "❌ Database returned no match for Order ID: " + trackOrderId);
         return NextResponse.json({ ok: true });
       }
 
       var statusEmoji = orderData.status === 'paid' ? '✅' : orderData.status === 'pending_payment' ? '⏳' : '📦';
-      var status = "📍 <b>Order #" + orderData.id + " Status</b>\n\n";
+      var status = "📍 <b>Logistics Trace: Order #" + orderData.id.split('-')[0] + "</b>\n\n";
       status += "📊 Status: <b>" + statusEmoji + " " + orderData.status + "</b>\n";
-      status += "💰 Total: KD " + orderData.total + "\n";
-      status += "🚚 Courier: " + (orderData.courier || "Pending") + "\n";
-      status += "📅 Est. Delivery: " + (orderData.estimated_delivery || "TBD") + "\n";
-      status += "📍 Address: " + (orderData.shipping_address || "—") + "\n\n";
-      if (orderData.order_items && orderData.order_items.length > 0) {
-        status += "<b>Items:</b>\n";
-        for (var k = 0; k < orderData.order_items.length; k++) {
-          var item = orderData.order_items[k];
-          var itemName = item.products ? item.products.name : "Product #" + item.product_id;
-          status += "• " + itemName + " x" + item.quantity + " — KD " + item.unit_price + "\n";
-        }
-      }
+      status += "🚚 Courier Option: " + (orderData.courier || "Pending calculation") + "\n";
+      status += "📅 Arrival Vector: " + (orderData.estimated_delivery || "TBD") + "\n";
+      status += "📍 Destination: " + (orderData.shipping_city || "—") + "\n\n";
 
-      // If pending payment, show pay button again
       if (orderData.status === 'pending_payment') {
-        status += "\n⚠️ <b>Payment not yet completed.</b>";
-        try {
-          const baseUrl = "https://souqii-one.vercel.app";
-          const payUrl = await createCheckoutSession(orderData.id, parseFloat(orderData.total), baseUrl);
-          await sendMessage(chatId, status, {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: "💳 Complete Payment", url: payUrl }
-              ]]
-            }
-          });
-        } catch {
-          await sendMessage(chatId, status);
-        }
+        const baseUrl = "https://souqii-one.vercel.app";
+        const payUrl = await createCheckoutSession(orderData.id, parseFloat(orderData.total), baseUrl);
+        await sendMessage(chatId, status + "\n⚠️ Remittance required to trigger shipping protocol.", {
+          reply_markup: {
+            inline_keyboard: [[ { text: "💳 Complete Remittance", url: payUrl } ]]
+          }
+        });
       } else {
         await sendMessage(chatId, status);
       }
     }
 
-    // ──────────────────────────────
-    // COMPATIBILITY — check two parts
-    // ──────────────────────────────
     else if (intent.intent === 'compatibility') {
       var p1 = intent.part1Id;
       var p2 = intent.part2Id;
       if (!p1 || !p2) {
-        await sendMessage(chatId, "🔧 Please provide two product IDs. Example: \"compatible 1 5\"");
+        // Fallback or natural text parse. 
+        await sendMessage(chatId, "🔧 To run a strict diagnostic, supply two specific IDs (e.g. \"compare 12 and 15\")");
         return NextResponse.json({ ok: true });
       }
 
       var compat = await checkCompatibility(p1, p2);
       var icon = compat.compatible ? "✅" : "❌";
-      var msg = icon + " <b>Compatibility Check</b>\n\n";
-      msg += compat.notes;
+      var msg = icon + " <b>Setup Diagnostic Scan</b>\n\n";
+      if (compat.accuracyRate) msg += "🎯 Predictive Accuracy: " + compat.accuracyRate + "\n\n";
+      if (compat.performanceImpact) msg += "🚀 <b>Performance Projection:</b>\n" + compat.performanceImpact + "\n\n";
+      msg += "📋 <b>Engineer Notes:</b>\n" + compat.notes;
+      
       await sendMessage(chatId, msg);
     }
-
-    // ──────────────────────────────
-    // HELP or UNKNOWN
-    // ──────────────────────────────
     else {
-      var helpMsg = "🤖 Here's how to use Souqii bot:\n\n";
-      helpMsg += "🔍 Just type what you're looking for\n";
-      helpMsg += "📦 \"browse\" — see all products\n";
-      helpMsg += "🛒 \"order 3\" — buy product with ID 3\n";
-      helpMsg += "🔧 \"compatible 1 5\" — check if parts work together\n";
-      helpMsg += "📍 \"track 101\" — track your order\n\n";
-      helpMsg += "Or just chat with me naturally! I'm powered by AI 🧠";
+      var helpMsg = "🤖 <b>Souqii Diagnostics</b>\n";
+      helpMsg += "• Query any component (e.g. \"I want a GPU\")\n";
+      helpMsg += "• Buy directly (e.g. \"Buy 3\")\n";
+      helpMsg += "• Run system checks (e.g. \"Is ID 4 compatible with ID 10?\")\n";
+      helpMsg += "• Scan package vectors (e.g. \"Track 12345\")";
       await sendMessage(chatId, helpMsg);
     }
 
     return NextResponse.json({ ok: true });
 
   } catch (err) {
-    console.error("Telegram webhook error:", err);
-    return NextResponse.json({ ok: true }); // Always return 200 so Telegram doesn't retry
+    console.error("Telegram trace error:", err);
+    return NextResponse.json({ ok: true });
   }
 }
