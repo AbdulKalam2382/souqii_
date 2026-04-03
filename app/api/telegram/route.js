@@ -323,18 +323,35 @@ export async function POST(request) {
       await sendMessage(chatId, "🤖 " + intent.friendlyReply);
     }
 
-    if (intent.intent === 'search' || intent.intent === 'browse') {
-      var query = intent.searchQuery || userMessage;
-      var results = await aiSmartSearch(query);
+    if (intent.intent === 'greeting') {
+      var hi = "👋 Hey " + userName + "! Welcome to Souqii!\n\n";
+      hi += "I'm your AI-powered PC parts assistant. Just tell me what you're looking for!\n\n";
+      hi += "For example:\n";
+      hi += "• \"I want to buy a gaming GPU\"\n";
+      hi += "• \"Show me DDR5 RAM\"\n";
+      hi += "• \"Is product 4 compatible with product 10?\"\n";
+      hi += "• \"Buy 3\" to order product ID 3";
+      await sendMessage(chatId, hi);
+    }
 
-      if (!results || results.length === 0) {
-        await sendMessage(chatId, "😔 No parts found matching that description. Tell me what else you need.");
-      } else {
-        await sendMessage(chatId, "🔍 Found these optimized matches for you:\n");
-        var limit = Math.min(results.length, 4);
-        for (var j = 0; j < limit; j++) {
-          await sendMessage(chatId, formatProduct(results[j]));
+    else if (intent.intent === 'search' || intent.intent === 'browse') {
+      var query = intent.searchQuery || userMessage;
+      try {
+        var results = await aiSmartSearch(query);
+
+        if (!results || results.length === 0) {
+          await sendMessage(chatId, "😔 No parts found matching \"" + query + "\". Try different keywords!");
+        } else {
+          await sendMessage(chatId, "🔍 Found " + results.length + " match(es) for you:\n");
+          var limit = Math.min(results.length, 4);
+          for (var j = 0; j < limit; j++) {
+            await sendMessage(chatId, formatProduct(results[j]));
+          }
+          await sendMessage(chatId, "💡 To order any item above, type <b>Buy [ID]</b> (e.g. Buy 5)");
         }
+      } catch (searchErr) {
+        console.error("Search error:", searchErr);
+        await sendMessage(chatId, "⚠️ Search hit an error: " + (searchErr.message || 'Unknown error') + "\n\nTry again or type \"browse\" to see all products.");
       }
     }
     
