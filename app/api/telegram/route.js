@@ -217,8 +217,17 @@ async function parseUserIntent(userMessage) {
 
   try {
     const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text());
-  } catch {
+    let text = result.response.text().trim();
+    if (text.startsWith("```json")) {
+       text = text.substring(7);
+       if (text.endsWith("```")) text = text.substring(0, text.length - 3);
+    } else if (text.startsWith("```")) {
+       text = text.substring(3);
+       if (text.endsWith("```")) text = text.substring(0, text.length - 3);
+    }
+    return JSON.parse(text.trim());
+  } catch (err) {
+    console.error("AI Parse Error:", err);
     return { intent: "unknown" };
   }
 }
