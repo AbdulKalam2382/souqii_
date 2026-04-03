@@ -91,8 +91,8 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       order_id: order.id,
-      courier: selected.courier,
-      courier_cost: selected.cost,
+      courier: aiCourier.courier,
+      courier_cost: aiCourier.cost,
       estimated_delivery: estimatedDelivery,
       total: total.toFixed(2),
       message: 'Order confirmed! Notification will be sent shortly.'

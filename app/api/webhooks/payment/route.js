@@ -9,8 +9,6 @@ export async function POST(req) {
 
   let event;
   try {
-    // If testing without a webhook secret temporarily, we can bypass verify
-    // But in production you MUST set STRIPE_WEBHOOK_SECRET in .env.local
     if (process.env.STRIPE_WEBHOOK_SECRET) {
         event = stripe.webhooks.constructEvent(payload, sig, process.env.STRIPE_WEBHOOK_SECRET);
     } else {
@@ -39,15 +37,30 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Database error' }, { status: 500 })
     }
 
-    // Now that they PAID, we can securely send the dispatch notification!
+    // Deduct stock for each item now that payment is confirmed
+    if (order.order_items) {
+      for (const oi of order.order_items) {
+        if (oi.products) {
+          const newStock = Math.max(0, oi.products.stock - oi.quantity);
+          await supabaseAdmin
+            .from('products')
+            .update({ stock: newStock })
+            .eq('id', oi.product_id);
+        }
+      }
+    }
+
+    // Send dispatch notification via Telegram (if order came from Telegram) or Email
     try {
-        const itemNames = order.order_items.map(oi => ({ name: oi.products.name }));
+        const itemNames = order.order_items.map(oi => ({ name: oi.products?.name || 'PC Part' }));
         await sendDispatchNotification(
             orderId, 
             "Valued Customer", 
             itemNames, 
             order.courier, 
-            order.estimated_delivery
+            order.estimated_delivery,
+            order.telegram_chat_id || null,  // Send to Telegram if available
+            null  // email placeholder
         );
     } catch(e) {
         console.error("Dispatch notification failed:", e)
