@@ -335,8 +335,8 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="advanced-filters" style={{ display: 'flex', gap: '15px', alignItems: 'center', background: 'var(--card-bg)', padding: '10px 20px', borderRadius: '20px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="advanced-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', background: 'var(--card-bg)', padding: '10px 20px', borderRadius: '20px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)' }}>Price BD:</span>
             <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={{ width: '70px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
             <span style={{ color: 'var(--muted)' }}>-</span>
