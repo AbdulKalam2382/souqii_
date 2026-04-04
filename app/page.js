@@ -26,6 +26,7 @@ export default function Home() {
   const [toast, setToast] = useState('');
   const [addedIds, setAddedIds] = useState(new Set());
   const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Advanced Filters
   const [minPrice, setMinPrice] = useState('');
@@ -313,43 +314,65 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CATEGORY & ADVANCED FILTERS */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        
-        <div className="category-filters" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', WebkitOverflowScrolling: 'touch', width: '100%' }}>
-          <button
-            className={`cat-btn ${activeCat === 'all' ? 'active' : ''}`}
-            onClick={() => filterCategory('all')}
-            style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === 'all' ? 'var(--accent)' : 'var(--surface)', color: activeCat === 'all' ? '#fff' : 'var(--foreground)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            All
-          </button>
-          {categories.map(cat => (
-            <button
-              key={cat.slug}
-              className={`cat-btn ${activeCat === cat.slug ? 'active' : ''}`}
-              onClick={() => filterCategory(cat.slug)}
-              style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === cat.slug ? 'var(--accent)' : 'var(--surface)', color: activeCat === cat.slug ? '#fff' : 'var(--foreground)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
+      {/* MOBILE FILTER TOGGLE */}
+      <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '1rem', display: 'flex', justifyContent: 'flex-start' }} className="mobile-filter-btn-container">
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '12px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>⧉</span> Filters & Sort
+        </button>
+      </div>
 
-        <div className="advanced-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', background: 'var(--card-bg)', padding: '15px', borderRadius: '16px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)', boxSizing: 'border-box' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)' }}>Price BD:</span>
-            <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={{ width: '80px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
-            <span style={{ color: 'var(--muted)' }}>-</span>
-            <input type="number" placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} style={{ width: '80px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
+      <div className={`cart-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} style={{ zIndex: 299 }}></div>
+
+      {/* MAIN AMAZON LAYOUT */}
+      <div className="app-container">
+        
+        {/* SIDEBAR */}
+        <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 className="sidebar-title" style={{ margin: 0 }}>Filters</h2>
+            <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--muted)' }} className="sidebar-close">✕</button>
           </div>
           
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', cursor: 'pointer', marginLeft: 'auto' }}>
-            <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} style={{ accentColor: 'var(--accent)', width: '18px', height: '18px' }} />
-            In Stock Only
-          </label>
-        </div>
-      </div>
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)', marginBottom: '10px' }}>Category</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: activeCat === 'all' ? 'var(--foreground)' : 'var(--muted)', cursor: 'pointer', fontWeight: activeCat === 'all' ? 700 : 500 }}>
+                <input type="radio" checked={activeCat === 'all'} onChange={() => filterCategory('all')} style={{ accentColor: 'var(--accent)', width: '16px', height: '16px' }} />
+                All Products
+              </label>
+              {categories.map(cat => (
+                <label key={cat.slug} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: activeCat === cat.slug ? 'var(--foreground)' : 'var(--muted)', cursor: 'pointer', fontWeight: activeCat === cat.slug ? 700 : 500 }}>
+                  <input type="radio" checked={activeCat === cat.slug} onChange={() => filterCategory(cat.slug)} style={{ accentColor: 'var(--accent)', width: '16px', height: '16px' }} />
+                  {cat.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)', marginBottom: '10px' }}>Price Range (KD)</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem', outline: 'none' }} />
+              <span style={{ color: 'var(--muted)' }}>-</span>
+              <input type="number" placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem', outline: 'none' }} />
+            </div>
+          </div>
+          
+          <div>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)', marginBottom: '10px' }}>Availability</h3>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: 'var(--muted)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} style={{ accentColor: 'var(--accent)', width: '18px', height: '18px' }} />
+              In Stock Only
+            </label>
+          </div>
+        </aside>
+
+        {/* MAIN CONTENT AREA */}
+        <main className="main-content">
+
 
 
       {/* PRODUCT GRID */}
@@ -407,6 +430,8 @@ export default function Home() {
           ))}
         </div>
       )}
+      </main>
+      </div>
 
       {/* CART OVERLAY */}
       <div className={`cart-overlay ${cartOpen ? 'open' : ''}`} onClick={() => setCartOpen(false)}></div>
