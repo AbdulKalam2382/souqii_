@@ -208,7 +208,7 @@ body {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1rem;
   padding: 1.5rem;
 }
@@ -381,7 +381,7 @@ body {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.6);
-  z-index: 200;
+  z-index: 9998;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
@@ -395,7 +395,7 @@ body {
   max-width: 90vw;
   background: var(--card-bg);
   border-left: 1px solid var(--card-border);
-  z-index: 201;
+  z-index: 9999;
   transform: translateX(100%);
   transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
   display: flex;

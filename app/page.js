@@ -393,6 +393,18 @@ export default function Home() {
               In Stock Only
             </label>
           </div>
+
+          {/* Mobile Only Apply Button */}
+          <div className="sidebar-close" style={{ marginTop: '2rem' }}>
+              <button 
+                onClick={() => setSidebarOpen(false)} 
+                className="btn-primary" 
+                style={{ width: '100%', padding: '1rem', fontSize: '1rem', fontWeight: 800, background: 'var(--accent)', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer' }}
+              >
+                Apply & View Results
+              </button>
+          </div>
+
         </aside>
 
         {/* MAIN CONTENT AREA */}
