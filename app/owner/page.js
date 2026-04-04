@@ -3,7 +3,12 @@
 import { useState, useEffect } from 'react';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('owner'); // 'owner', 'worker', 'pos'
+  const [activeTab, setActiveTab] = useState('owner'); // 'owner', 'pos'
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -12,6 +17,17 @@ export default function AdminDashboard() {
   const [posProducts, setPosProducts] = useState([]);
   const [posSearch, setPosSearch] = useState('');
   const [posCart, setPosCart] = useState([]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (username === 'owner' && password === 'owner123') {
+      setIsAuthorized(true);
+      setAuthError('');
+    } else {
+      setAuthError('Invalid Owner Credentials');
+    }
+  };
+
 
 
   const fetchAIInsights = async () => {
@@ -54,14 +70,34 @@ export default function AdminDashboard() {
   const posTotal = posCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
 
+  if (!isAuthorized) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)' }}>
+        <form onSubmit={handleLogin} style={{ background: 'var(--card-bg)', padding: '40px', borderRadius: '20px', border: '1px solid var(--card-border)', width: '100%', maxWidth: '400px', boxShadow: 'var(--shadow-lg)' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 800 }}>🔐 Owner Portal</h2>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '5px' }}>Username</label>
+            <input type="text" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--card-border)', background: 'var(--surface)', color: 'var(--foreground)', outline: 'none' }} />
+          </div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '5px' }}>Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--card-border)', background: 'var(--surface)', color: 'var(--foreground)', outline: 'none' }} />
+          </div>
+          {authError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem' }}>{authError}</p>}
+          <button type="submit" className="btn-primary">Verify Identity</button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(135deg, var(--accent), var(--pink-accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Souqii Command Center
+            Souqii Owner Suite
           </h1>
-          <p style={{ color: 'var(--muted)' }}>Manage your empire with AI-driven precision.</p>
+          <p style={{ color: 'var(--muted)' }}>Proprietary intelligence & point of sale.</p>
         </div>
         
         <div style={{ display: 'flex', gap: '10px', background: 'var(--surface)', padding: '5px', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
@@ -69,13 +105,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('owner')}
             style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'owner' ? 'var(--accent)' : 'transparent', color: activeTab === 'owner' ? '#fff' : 'var(--foreground)', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
           >
-            Owner View
-          </button>
-          <button 
-            onClick={() => setActiveTab('worker')}
-            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'worker' ? 'var(--accent)' : 'transparent', color: activeTab === 'worker' ? '#fff' : 'var(--foreground)', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
-          >
-            Worker View
+            Dashboard
           </button>
           <button 
             onClick={() => setActiveTab('pos')}
