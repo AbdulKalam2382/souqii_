@@ -314,12 +314,13 @@ export default function Home() {
       </section>
 
       {/* CATEGORY & ADVANCED FILTERS */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1.5rem', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="category-filters" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        
+        <div className="category-filters" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', WebkitOverflowScrolling: 'touch', width: '100%' }}>
           <button
             className={`cat-btn ${activeCat === 'all' ? 'active' : ''}`}
             onClick={() => filterCategory('all')}
-            style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === 'all' ? 'var(--accent)' : 'var(--surface)', color: activeCat === 'all' ? '#fff' : 'var(--foreground)', cursor: 'pointer' }}
+            style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === 'all' ? 'var(--accent)' : 'var(--surface)', color: activeCat === 'all' ? '#fff' : 'var(--foreground)', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             All
           </button>
@@ -328,27 +329,28 @@ export default function Home() {
               key={cat.slug}
               className={`cat-btn ${activeCat === cat.slug ? 'active' : ''}`}
               onClick={() => filterCategory(cat.slug)}
-              style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === cat.slug ? 'var(--accent)' : 'var(--surface)', color: activeCat === cat.slug ? '#fff' : 'var(--foreground)', cursor: 'pointer' }}
+              style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === cat.slug ? 'var(--accent)' : 'var(--surface)', color: activeCat === cat.slug ? '#fff' : 'var(--foreground)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
             >
               {cat.name}
             </button>
           ))}
         </div>
 
-        <div className="advanced-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', background: 'var(--card-bg)', padding: '10px 20px', borderRadius: '20px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)', width: '100%' }}>
+        <div className="advanced-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', background: 'var(--card-bg)', padding: '15px', borderRadius: '16px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)' }}>Price BD:</span>
-            <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={{ width: '70px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
+            <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={{ width: '80px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
             <span style={{ color: 'var(--muted)' }}>-</span>
-            <input type="number" placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} style={{ width: '70px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
+            <input type="number" placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} style={{ width: '80px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
           </div>
           
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', cursor: 'pointer', marginLeft: 'auto' }}>
+            <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} style={{ accentColor: 'var(--accent)', width: '18px', height: '18px' }} />
             In Stock Only
           </label>
         </div>
       </div>
+
 
       {/* PRODUCT GRID */}
       {loading ? (
