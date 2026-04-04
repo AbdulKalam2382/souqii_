@@ -34,7 +34,7 @@ export default function AdminDashboard() {
     <div className="admin-container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(135deg, #fff, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(135deg, var(--accent), var(--pink-accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             Souqii Command Center
           </h1>
           <p style={{ color: 'var(--muted)' }}>Manage your empire with AI-driven precision.</p>
@@ -43,13 +43,13 @@ export default function AdminDashboard() {
         <div style={{ display: 'flex', gap: '10px', background: 'var(--surface)', padding: '5px', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
           <button 
             onClick={() => setActiveTab('owner')}
-            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'owner' ? 'var(--accent)' : 'transparent', color: '#fff', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
+            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'owner' ? 'var(--accent)' : 'transparent', color: activeTab === 'owner' ? '#fff' : 'var(--foreground)', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
           >
             Owner View
           </button>
           <button 
             onClick={() => setActiveTab('worker')}
-            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'worker' ? 'var(--accent)' : 'transparent', color: '#fff', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
+            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'worker' ? 'var(--accent)' : 'transparent', color: activeTab === 'worker' ? '#fff' : 'var(--foreground)', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
           >
             Worker View
           </button>
@@ -106,9 +106,9 @@ export default function AdminDashboard() {
             <h3 style={{ marginBottom: '15px', color: 'var(--warning)' }}>⚠️ Critical Stock Alerts</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
                 {data && data.lowStock.map((item, i) => (
-                    <div key={i} style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--warning)', padding: '15px', borderRadius: '12px' }}>
-                        <p style={{ fontWeight: 700, fontSize: '0.9rem' }}>{item.name}</p>
-                        <p style={{ color: 'var(--warning)', fontSize: '0.8rem' }}>Only {item.stock} left!</p>
+                    <div key={i} style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid var(--warning)', padding: '15px', borderRadius: '12px' }}>
+                        <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--foreground)' }}>{item.name}</p>
+                        <p style={{ color: 'var(--warning)', fontSize: '0.8rem', fontWeight: 600 }}>Only {item.stock} left!</p>
                     </div>
                 ))}
             </div>
@@ -121,31 +121,43 @@ export default function AdminDashboard() {
                 <thead style={{ background: 'var(--surface)', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--muted)' }}>
                   <tr>
                     <th style={{ padding: '15px' }}>Order ID</th>
-                    <th style={{ padding: '15px' }}>Total</th>
+                    <th style={{ padding: '15px' }}>Destination</th>
                     <th style={{ padding: '15px' }}>Status</th>
-                    <th style={{ padding: '15px' }}>Courier Selection AI</th>
+                    <th style={{ padding: '15px' }}>Courier Selection & Reasoning</th>
+                    <th style={{ padding: '15px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody style={{ fontSize: '0.9rem' }}>
                    {data && data.recentOrders.map((order, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--card-border)' }}>
-                        <td style={{ padding: '15px' }}>#...{order.id?.substring(0,6)}</td>
-                        <td style={{ padding: '15px' }}>KD {order.total}</td>
+                        <td style={{ padding: '15px', fontWeight: 600 }}>#{order.id?.substring(0,8)}</td>
                         <td style={{ padding: '15px' }}>
-                           <span className={`status-badge status-${order.status}`}>{order.status}</span>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                            {order.shipping_address ? order.shipping_address.substring(0, 25) + '...' : 'Address missing'}
+                          </span>
                         </td>
                         <td style={{ padding: '15px' }}>
-                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                           <span style={{ background: order.status === 'confirmed' ? 'var(--success)' : 'var(--warning)', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                             {order.status}
+                           </span>
+                        </td>
+                        <td style={{ padding: '15px', maxWidth: '300px' }}>
+                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               <strong style={{ color: 'var(--accent)' }}>{order.courier || 'TBD'}</strong>
-                              <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontStyle: 'italic' }}>
-                                 {/* Reasoning would be fetched separately or included in data */}
+                              <span style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: '1.4' }}>
                                  {order.ai_courier_reason || 'Optimization bypass enabled.'}
                               </span>
                            </div>
                         </td>
+                        <td style={{ padding: '15px' }}>
+                           <div style={{ display: 'flex', gap: '8px' }}>
+                              <button style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>📄 Label</button>
+                              <button style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Ship 📦</button>
+                           </div>
+                        </td>
                       </tr>
                    ))}
-                   {!data && <tr><td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Run AI Analysis to populate live order tracking.</td></tr>}
+                   {!data && <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Run AI Analysis to populate live order tracking.</td></tr>}
                 </tbody>
               </table>
            </div>
@@ -183,16 +195,18 @@ function StatCard({ label, value, color }) {
 function InsightBox({ title, content, icon, highlight }) {
   return (
     <div className="InsightBox" style={{ 
-      background: highlight ? 'rgba(99, 102, 241, 0.1)' : 'var(--surface)', 
-      border: highlight ? '1px solid var(--accent)' : '1px solid var(--card-border)', 
+      background: highlight ? 'var(--pink-glow)' : 'var(--surface)', 
+      border: highlight ? '1px solid var(--pink-accent)' : '1px solid var(--card-border)', 
       padding: '20px', 
-      borderRadius: '16px' 
+      borderRadius: '16px',
+      boxShadow: highlight ? '0 0 10px var(--pink-glow)' : 'none'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
         <span style={{ fontSize: '1.2rem' }}>{icon}</span>
-        <h4 style={{ fontWeight: 700, fontSize: '0.95rem' }}>{title}</h4>
+        <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: highlight ? 'var(--pink-accent)' : 'var(--foreground)' }}>{title}</h4>
       </div>
       <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: '1.6' }}>{content}</p>
     </div>
   );
 }
+

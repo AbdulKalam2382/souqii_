@@ -1,19 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0f;
-  --foreground: #e8e8f0;
-  --card-bg: #12121a;
-  --card-border: #1e1e2e;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-glow: rgba(99, 102, 241, 0.3);
-  --success: #22c55e;
+  --background: #f0f9ff; /* Light, airy sky blue background */
+  --foreground: #1e293b; /* Slate dark text */
+  --card-bg: #ffffff; /* Crisp white cards */
+  --card-border: #e0f2fe; /* Soft sky blue border */
+  --accent: #38bdf8; /* Vibrant Sky Blue */
+  --accent-hover: #0ea5e9;
+  --accent-glow: rgba(56, 189, 248, 0.4);
+  --pink-accent: #f472b6; /* Mid Pink */
+  --pink-glow: rgba(244, 114, 182, 0.4);
+  --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --muted: #71717a;
-  --surface: #18182a;
-  --surface-hover: #1e1e32;
+  --muted: #64748b;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
 }
 
 @theme inline {
@@ -38,9 +43,10 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  background: rgba(10, 10, 15, 0.85);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--card-border);
+  box-shadow: var(--shadow-sm);
 }
 .navbar-brand {
   display: flex;
@@ -48,8 +54,9 @@ body {
   gap: 0.5rem;
   font-size: 1.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  background: linear-gradient(135deg, var(--accent), var(--pink-accent));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
 }
@@ -82,7 +89,8 @@ body {
 }
 .cart-btn:hover {
   background: var(--surface-hover);
-  border-color: var(--accent);
+  border-color: var(--pink-accent);
+  color: var(--pink-accent);
 }
 .cart-badge {
   position: absolute;
@@ -103,16 +111,17 @@ body {
 /* ── HERO ── */
 .hero {
   text-align: center;
-  padding: 3rem 1.5rem 2rem;
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, transparent 100%);
+  padding: 4rem 1.5rem 3rem;
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.15) 0%, rgba(244, 114, 182, 0.05) 50%, transparent 100%);
 }
 .hero h1 {
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 800;
   line-height: 1.2;
-  margin-bottom: 0.75rem;
-  background: linear-gradient(135deg, #fff, #a78bfa);
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--foreground), var(--accent), var(--pink-accent));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .hero p {
@@ -143,7 +152,7 @@ body {
 .search-input::placeholder { color: var(--muted); }
 .search-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 4px var(--accent-glow);
 }
 .search-btn {
   position: absolute;
@@ -175,14 +184,15 @@ body {
 .product-card {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
-  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s;
 }
 .product-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
   border-color: var(--accent);
-  box-shadow: 0 8px 30px var(--accent-glow);
+  box-shadow: var(--shadow-lg), 0 0 20px var(--accent-glow);
 }
 .product-card-img {
   width: 100%;
