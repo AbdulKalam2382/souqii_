@@ -167,6 +167,14 @@ async function finalizeDraft(orderId) {
     packageWeight: 1.5
   });
 
+  // Estimate based on the string e.g. "X days" -> integer
+  const daysStr = aiCourier.estimatedDays.match(/\d+/)
+  const offsetDays = daysStr ? parseInt(daysStr[0]) : 2
+
+  const deliveryDate = new Date()
+  deliveryDate.setDate(deliveryDate.getDate() + offsetDays)
+  const estimatedDeliveryDateStr = deliveryDate.toISOString().split('T')[0]
+
   const { error: upErr } = await supabaseAdmin
     .from('orders')
     .update({
@@ -174,7 +182,7 @@ async function finalizeDraft(orderId) {
       shipping_address: compiledAddress,
       courier: aiCourier.courier,
       courier_cost: aiCourier.cost,
-      estimated_delivery: aiCourier.estimatedDays,
+      estimated_delivery: estimatedDeliveryDateStr,
       ai_courier_reason: aiCourier.reasoning
     })
     .eq('id', orderId);
