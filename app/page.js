@@ -26,6 +26,7 @@ export default function Home() {
   const [toast, setToast] = useState('');
   const [addedIds, setAddedIds] = useState(new Set());
   const [user, setUser] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Advanced Filters
@@ -250,6 +251,11 @@ export default function Home() {
     }
   };
 
+  const handleSignOut = () => {
+    localStorage.removeItem('souqii_user');
+    window.location.href = '/login';
+  };
+
   // ─── Toast ───
   const showToast = (msg) => {
     setToast(msg);
@@ -287,10 +293,30 @@ export default function Home() {
           </button>
           
           {user && (
-            <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--pink-accent))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} title={user.email}>
-              {user.email ? user.email.charAt(0).toUpperCase() : 'G'}
+            <div style={{ position: 'relative' }}>
+              <div 
+                onClick={() => setProfileOpen(!profileOpen)}
+                style={{ width: '35px', height: '35px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--pink-accent))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} 
+                title={user.email}
+              >
+                {user.email ? user.email.charAt(0).toUpperCase() : 'G'}
+              </div>
+
+              {profileOpen && (
+                <div style={{ position: 'absolute', top: '45px', right: '0', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '12px', boxShadow: 'var(--shadow-lg)', width: '220px', zIndex: 500, overflow: 'hidden' }}>
+                  <div style={{ padding: '15px', background: 'var(--surface)', borderBottom: '1px solid var(--card-border)' }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>Signed in as</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.9rem', fontWeight: 800, color: 'var(--foreground)', wordBreak: 'break-all' }}>{user.email}</p>
+                  </div>
+                  <div style={{ padding: '8px' }}>
+                    <a href="/admin" style={{ display: 'block', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--foreground)', textDecoration: 'none', borderRadius: '8px', fontWeight: 600 }}>⚙️ Admin Dashboard</a>
+                    <button onClick={handleSignOut} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--danger)', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, marginTop: '4px' }}>🚪 Sign Out</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
         </div>
       </nav>
 
