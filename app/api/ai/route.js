@@ -6,12 +6,16 @@ export async function POST(request) {
     const body = await request.json();
     const { action, payload } = body;
 
+    // Backward compatibility: If partner frontend sends { query: "..." } directly
+    const searchQuery = payload?.query || body.query;
+    const effectiveAction = action || (body.query ? 'search' : null);
+
     let result;
 
-    if (action === 'recommend') {
+    if (effectiveAction === 'recommend') {
       result = await getAIRecommendations(payload);
-    } else if (action === 'search') {
-      result = await aiSmartSearch(payload.query);
+    } else if (effectiveAction === 'search') {
+      result = await aiSmartSearch(searchQuery);
     } else if (action === 'compatibility') {
       result = await checkCompatibility(payload.part1Id, payload.part2Id);
     } else {

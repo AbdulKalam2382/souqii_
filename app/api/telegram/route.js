@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { aiSmartSearch, checkCompatibility } from '@/lib/ai';
+import { aiSmartSearch, checkCompatibility, nlCompatibilityCheck, groqEnhanceIntent } from '@/lib/ai';
 import { selectBestCourier } from '@/lib/courier';
 import { createCheckoutSession } from '@/lib/stripe';
 
@@ -259,29 +259,37 @@ function parseIntentFromKeywords(userMessage) {
 
 // Optional AI enhancement (non-blocking - if AI fails, keyword result is used)
 async function enhanceWithAI(keywordIntent, userMessage) {
-  try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: { responseMimeType: "application/json" }
-    });
+  const groqData = await groqEnhanceIntent(userMessage);
+  
+  if (groqData) {
+    if (groqData.searchQuery) keywordIntent.searchQuery = groqData.searchQuery;
+    if (groqData.friendlyReply) keywordIntent.friendlyReply = groqData.friendlyReply;
+  } else {
+    // Legacy Gemini Fallback if Groq is down
+    try {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        generationConfig: { responseMimeType: "application/json" }
+      });
 
-    var prompt = 'You are the AI chatbot for Souqii, a PC parts store. ';
-    prompt += 'Analyze the customer message and extract the best search keywords.\n\n';
-    prompt += 'Customer message: "' + userMessage + '"\n\n';
-    prompt += 'Return JSON: { "searchQuery": "optimized search terms", "friendlyReply": "short friendly reply" }\n';
+      var prompt = 'You are the AI chatbot for Souqii, a PC parts store. ';
+      prompt += 'Analyze the customer message and extract the best search keywords.\n\n';
+      prompt += 'Customer message: "' + userMessage + '"\n\n';
+      prompt += 'Return JSON: { "searchQuery": "optimized search terms", "friendlyReply": "short friendly reply" }\n';
 
-    const result = await model.generateContent(prompt);
-    let text = result.response.text().trim();
-    if (text.startsWith("```json")) text = text.substring(7);
-    if (text.startsWith("```")) text = text.substring(3);
-    if (text.endsWith("```")) text = text.substring(0, text.length - 3);
-    
-    const aiData = JSON.parse(text.trim());
-    if (aiData.searchQuery) keywordIntent.searchQuery = aiData.searchQuery;
-    if (aiData.friendlyReply) keywordIntent.friendlyReply = aiData.friendlyReply;
-  } catch (err) {
-    console.error("AI enhancement failed (using keyword fallback):", err.message);
+      const result = await model.generateContent(prompt);
+      let text = result.response.text().trim();
+      if (text.startsWith("```json")) text = text.substring(7);
+      if (text.startsWith("```")) text = text.substring(3);
+      if (text.endsWith("```")) text = text.substring(0, text.length - 3);
+      
+      const aiData = JSON.parse(text.trim());
+      if (aiData.searchQuery) keywordIntent.searchQuery = aiData.searchQuery;
+      if (aiData.friendlyReply) keywordIntent.friendlyReply = aiData.friendlyReply;
+    } catch (err) {
+      console.error("Gemini fallback enhancement failed:", err.message);
+    }
   }
   return keywordIntent;
 }
@@ -495,11 +503,16 @@ export async function POST(request) {
         return NextResponse.json({ ok: true });
       }
 
-      var compat = await checkCompatibility(p1, p2);
+      await sendMessage(chatId, "🛠 <b>Initiating Deep Hardware Scan via Groq Diagnostic Engine...</b>");
+
+      // Use the new NL high-reasoning check
+      var compat = await nlCompatibilityCheck(p1, p2);
       var icon = compat.compatible ? "✅" : "❌";
-      var msg = icon + " <b>Setup Diagnostic Scan</b>\n\n";
+      var msg = icon + " <b>Setup Diagnostic Scan (AI Powered)</b>\n\n";
+      
       if (compat.accuracyRate) msg += "🎯 Predictive Accuracy: " + compat.accuracyRate + "\n\n";
       if (compat.performanceImpact) msg += "🚀 <b>Performance Projection:</b>\n" + compat.performanceImpact + "\n\n";
+      
       msg += "📋 <b>Engineer Notes:</b>\n" + compat.notes;
       
       await sendMessage(chatId, msg);

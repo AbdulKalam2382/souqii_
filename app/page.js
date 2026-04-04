@@ -152,8 +152,8 @@ export default function Home() {
 
   // ─── Checkout ───
   const handleCheckout = async () => {
-    if (!shippingAddress.trim()) {
-      showToast('⚠️ Please enter your shipping address');
+    if (!doorNumber.trim() || !street.trim() || !block.trim() || !area.trim()) {
+      showToast('⚠️ Please complete your 6-part address');
       return;
     }
     if (cart.length === 0) {

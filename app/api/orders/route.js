@@ -5,7 +5,12 @@ import { selectBestCourier } from '@/lib/courier'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { user_id, items, door_number, street, block, area, city, pincode, channel = 'website' } = body
+    const { 
+      user_id, items, 
+      door_number, street, block, area, city, pincode, 
+      shipping_address, address, // Legacy address strings
+      channel = 'website' 
+    } = body
 
     if (!items || items.length === 0)
       return NextResponse.json({ error: 'No items in order' }, { status: 400 })
@@ -20,23 +25,36 @@ export async function POST(request) {
       return NextResponse.json({ error: productError.message }, { status: 500 })
 
     for (const item of items) {
-      const product = products.find(p => p.id === item.product_id)
+      const pId = item.product_id || item.id // Compatibility with both formats
+      const product = products.find(p => p.id === parseInt(pId))
       if (!product)
-        return NextResponse.json({ error: `Product ${item.product_id} not found` }, { status: 404 })
+        return NextResponse.json({ error: `Product ${pId} not found` }, { status: 404 })
       if (product.stock < item.quantity)
         return NextResponse.json({ error: `Not enough stock for ${product.name}` }, { status: 400 })
     }
 
     const total = items.reduce((sum, item) => {
-      const product = products.find(p => p.id === item.product_id)
-      return sum + (product.price * item.quantity)
+      const pId = item.product_id || item.id 
+      const product = products.find(p => p.id === parseInt(pId))
+      const price = parseFloat(product?.price || 0)
+      const quantity = parseInt(item.quantity || 1)
+      return sum + (price * quantity)
     }, 0)
 
-    // Call the exact same AI Courier logic as the Telegram Bot!
+    // Form fallback address string for legacy row OR new format
+    let finalAddressString = "";
+    if (door_number) {
+       finalAddressString = `House ${door_number}, St ${street}, Blk ${block}, ${area}`;
+    } else {
+       finalAddressString = shipping_address || address || "Address not provided";
+    }
+
+    // AI Courier selection - even if legacy, we attempt it with the city
+    const destinationCity = city || (address?.split(',').pop()?.trim()) || 'Kuwait City'
     const orderDetails = {
-      destinationCity: city || 'Kuwait City',
+      destinationCity,
       orderValue: total,
-      packageWeight: items.length * 1.5 // Rough estimation for weight
+      packageWeight: items.length * 1.5 
     }
     const aiCourier = await selectBestCourier(orderDetails)
 
@@ -58,14 +76,13 @@ export async function POST(request) {
         status: 'pending_payment',
         channel,
         total: total.toFixed(2),
-        // Legacy column mapping fallback + new explicit columns
-        shipping_address: oldFormatAddress,
-        shipping_city: city,
-        door_number,
-        street,
-        block,
-        area,
-        pincode,
+        shipping_address: finalAddressString,
+        shipping_city: city || destinationCity,
+        door_number: door_number || null,
+        street: street || null,
+        block: block || null,
+        area: area || null,
+        pincode: pincode || null,
         courier: aiCourier.courier,
         courier_cost: parseFloat(aiCourier.cost) || 2.50,
         estimated_delivery: estimatedDelivery,
@@ -78,10 +95,11 @@ export async function POST(request) {
       return NextResponse.json({ error: orderError.message }, { status: 500 })
 
     const orderItems = items.map(item => {
-      const product = products.find(p => p.id === item.product_id)
+      const pId = item.product_id || item.id 
+      const product = products.find(p => p.id === parseInt(pId))
       return {
         order_id: order.id,
-        product_id: item.product_id,
+        product_id: parseInt(pId),
         quantity: item.quantity,
         unit_price: product.price
       }
@@ -90,11 +108,12 @@ export async function POST(request) {
     await supabaseAdmin.from('order_items').insert(orderItems)
 
     for (const item of items) {
-      const product = products.find(p => p.id === item.product_id)
+      const pId = item.product_id || item.id 
+      const product = products.find(p => p.id === parseInt(pId))
       await supabaseAdmin
         .from('products')
         .update({ stock: product.stock - item.quantity })
-        .eq('id', item.product_id)
+        .eq('id', parseInt(pId))
     }
 
     return NextResponse.json({
@@ -108,8 +127,12 @@ export async function POST(request) {
     }, { status: 201 })
 
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    console.error("Order processing failed:", err)
+    return NextResponse.json({ 
+      error: 'Server error', 
+      detail: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    }, { status: 500 })
   }
 }
 
