@@ -25,6 +25,12 @@ export default function Home() {
   const [searching, setSearching] = useState(false);
   const [toast, setToast] = useState('');
   const [addedIds, setAddedIds] = useState(new Set());
+  const [user, setUser] = useState(null);
+  
+  // Advanced Filters
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [inStockOnly, setInStockOnly] = useState(false);
 
   // Shipping form - Kuwait 6-part format
   const [doorNumber, setDoorNumber] = useState('');
@@ -35,8 +41,16 @@ export default function Home() {
   const [pincode, setPincode] = useState('');
   const [checkingOut, setCheckingOut] = useState(false);
 
-  // ─── Load products ───
+  // ─── Load products & Auth Check ───
   useEffect(() => {
+    // Auth Check
+    const localUser = localStorage.getItem('souqii_user');
+    if (!localUser) {
+      window.location.href = '/login';
+      return;
+    }
+    setUser(JSON.parse(localUser));
+
     fetch('/api/products')
       .then(r => r.json())
       .then(data => {
@@ -67,16 +81,29 @@ export default function Home() {
     setCart(getCart());
   }, []);
 
-  // ─── Filter by category ───
+  // ─── Filter Logic ───
+  useEffect(() => {
+    let result = [...products];
+
+    // Category
+    if (activeCat !== 'all') {
+      result = result.filter(p => p.categories?.slug === activeCat);
+    }
+    
+    // Price
+    if (minPrice) result = result.filter(p => p.price >= parseFloat(minPrice));
+    if (maxPrice) result = result.filter(p => p.price <= parseFloat(maxPrice));
+    
+    // Stock
+    if (inStockOnly) result = result.filter(p => p.stock > 0);
+
+    setFilteredProducts(result);
+  }, [activeCat, minPrice, maxPrice, inStockOnly, products]);
+
   const filterCategory = useCallback((slug) => {
     setActiveCat(slug);
     setSearchQuery('');
-    if (slug === 'all') {
-      setFilteredProducts(products);
-    } else {
-      setFilteredProducts(products.filter(p => p.categories?.slug === slug));
-    }
-  }, [products]);
+  }, []);
 
   // ─── AI Search ───
   const handleSearch = async () => {
@@ -251,18 +278,24 @@ export default function Home() {
         <a href="/" className="navbar-brand" style={{ textDecoration: 'none' }}>
           ⚡ Souqii
         </a>
-        <div className="navbar-links">
+        <div className="navbar-links" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
           <a href="/track">📍 Track Order</a>
           <button className="cart-btn" onClick={() => setCartOpen(true)} id="cart-toggle">
             🛒 Cart
             {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
           </button>
+          
+          {user && (
+            <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--pink-accent))', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} title={user.email}>
+              {user.email ? user.email.charAt(0).toUpperCase() : 'G'}
+            </div>
+          )}
         </div>
       </nav>
 
       {/* HERO */}
       <section className="hero">
-        <h1>AI-Powered PC Parts</h1>
+        <h1>BUILD YOUR OWN PC</h1>
         <p>Search naturally, get smart recommendations, and build your perfect rig.</p>
 
         <div className="search-container">
@@ -280,23 +313,41 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CATEGORY FILTERS */}
-      <div className="category-filters">
-        <button
-          className={`cat-btn ${activeCat === 'all' ? 'active' : ''}`}
-          onClick={() => filterCategory('all')}
-        >
-          All
-        </button>
-        {categories.map(cat => (
+      {/* CATEGORY & ADVANCED FILTERS */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1.5rem', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="category-filters" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
           <button
-            key={cat.slug}
-            className={`cat-btn ${activeCat === cat.slug ? 'active' : ''}`}
-            onClick={() => filterCategory(cat.slug)}
+            className={`cat-btn ${activeCat === 'all' ? 'active' : ''}`}
+            onClick={() => filterCategory('all')}
+            style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === 'all' ? 'var(--accent)' : 'var(--surface)', color: activeCat === 'all' ? '#fff' : 'var(--foreground)', cursor: 'pointer' }}
           >
-            {cat.name}
+            All
           </button>
-        ))}
+          {categories.map(cat => (
+            <button
+              key={cat.slug}
+              className={`cat-btn ${activeCat === cat.slug ? 'active' : ''}`}
+              onClick={() => filterCategory(cat.slug)}
+              style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid var(--card-border)', background: activeCat === cat.slug ? 'var(--accent)' : 'var(--surface)', color: activeCat === cat.slug ? '#fff' : 'var(--foreground)', cursor: 'pointer' }}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="advanced-filters" style={{ display: 'flex', gap: '15px', alignItems: 'center', background: 'var(--card-bg)', padding: '10px 20px', borderRadius: '20px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)' }}>Price BD:</span>
+            <input type="number" placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={{ width: '70px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
+            <span style={{ color: 'var(--muted)' }}>-</span>
+            <input type="number" placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} style={{ width: '70px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--card-border)', background: 'var(--surface)', fontSize: '0.85rem' }} />
+          </div>
+          
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
+            In Stock Only
+          </label>
+        </div>
       </div>
 
       {/* PRODUCT GRID */}
@@ -314,26 +365,28 @@ export default function Home() {
           )}
           {filteredProducts.map(product => (
             <div className="product-card" key={product.id} id={`product-${product.id}`}>
-              <img
-                className="product-card-img"
-                src={product.image_url || 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=400'}
-                alt={product.name}
-                loading="lazy"
-              />
-              <div className="product-card-body">
-                <div className="product-category">
-                  {product.categories?.name || 'PC Part'}
+              <a href={`/product/${product.id}`} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
+                <img
+                  className="product-card-img"
+                  src={product.image_url || 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=400'}
+                  alt={product.name}
+                  loading="lazy"
+                />
+                <div className="product-card-body">
+                  <div className="product-category" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--pink-accent)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>
+                    {product.categories?.name || 'PC Part'}
+                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--foreground)' }}>{product.name}</h3>
+                  <div className="product-specs" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+                    {getOrganizedSpecs(product.specs).slice(0, 3).map((s, i) => (
+                      <span key={i} style={{ fontSize: '0.75rem', background: 'var(--surface-hover)', color: 'var(--muted)', padding: '2px 8px', borderRadius: '10px' }}>
+                        {s.val}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <h3>{product.name}</h3>
-                <div className="product-specs" style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
-                  {getOrganizedSpecs(product.specs).map((s, i) => (
-                    <div key={i} style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      <strong style={{ color: 'var(--text)' }}>{s.label}:</strong> {s.val}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="product-card-footer">
+              </a>
+              <div className="product-card-footer" style={{ padding: '0 1.25rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div className="product-price">
                     KD {product.price} <span>/ unit</span>
