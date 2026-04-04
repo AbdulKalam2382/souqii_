@@ -6,20 +6,25 @@ export async function POST(request) {
     const body = await request.json();
     const { action, payload } = body;
 
-    // Backward compatibility: Handle different legacy formats (search actions)
-    const searchQuery = payload?.query || body.query || body.message;
-    const effectiveAction = action || (body.query || body.message ? 'search' : null);
+    // Backward compatibility & Hardening: Handle diverse legacy formats
+    const searchQuery = payload?.query || body.query || body.message || body.payload?.message;
+    const effectiveAction = action || (searchQuery ? 'search' : null);
 
     let result;
 
     if (effectiveAction === 'recommend') {
-      result = await getAIRecommendations(payload);
+      result = await getAIRecommendations(payload || body);
     } else if (effectiveAction === 'search') {
       result = await aiSmartSearch(searchQuery);
-    } else if (action === 'compatibility') {
-      result = await checkCompatibility(payload.part1Id, payload.part2Id);
+    } else if (effectiveAction === 'compatibility' || action === 'compatibility') {
+      result = await checkCompatibility(payload?.part1Id || body.part1Id, payload?.part2Id || body.part2Id);
     } else {
-      return NextResponse.json({ error: 'Unknown or missing action' }, { status: 400 });
+      // Final Fallback: If there's any text, just treat it as search
+      if (searchQuery) {
+        result = await aiSmartSearch(searchQuery);
+      } else {
+        return NextResponse.json({ error: 'Unknown or missing action' }, { status: 400 });
+      }
     }
 
     return NextResponse.json(result);
