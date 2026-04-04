@@ -5,6 +5,10 @@ import { selectBestCourier } from '@/lib/courier'
 export async function POST(request) {
   try {
     const body = await request.json()
+    
+    // Hardening: Prevent literal "undefined" or "null" strings from crashing DB
+    const sanitize = (val) => (val === "undefined" || val === "null" || !val) ? null : val;
+
     const { 
       user_id, items, 
       door_number, street, block, area, city, pincode, 
@@ -72,17 +76,17 @@ export async function POST(request) {
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
-        user_id,
+        user_id: sanitize(user_id),
         status: 'pending_payment',
         channel,
         total: total.toFixed(2),
         shipping_address: finalAddressString,
-        shipping_city: city || destinationCity,
-        door_number: door_number || null,
-        street: street || null,
-        block: block || null,
-        area: area || null,
-        pincode: pincode || null,
+        shipping_city: sanitize(city || destinationCity),
+        door_number: sanitize(door_number),
+        street: sanitize(street),
+        block: sanitize(block),
+        area: sanitize(area),
+        pincode: sanitize(pincode),
         courier: aiCourier.courier,
         courier_cost: parseFloat(aiCourier.cost) || 2.50,
         estimated_delivery: estimatedDelivery,

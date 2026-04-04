@@ -6,9 +6,9 @@ export async function POST(request) {
     const body = await request.json();
     const { action, payload } = body;
 
-    // Backward compatibility: If partner frontend sends { query: "..." } directly
-    const searchQuery = payload?.query || body.query;
-    const effectiveAction = action || (body.query ? 'search' : null);
+    // Backward compatibility: Handle different legacy formats (search actions)
+    const searchQuery = payload?.query || body.query || body.message;
+    const effectiveAction = action || (body.query || body.message ? 'search' : null);
 
     let result;
 
