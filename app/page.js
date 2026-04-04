@@ -309,7 +309,6 @@ export default function Home() {
                     <p style={{ margin: '4px 0 0', fontSize: '0.9rem', fontWeight: 800, color: 'var(--foreground)', wordBreak: 'break-all' }}>{user.email}</p>
                   </div>
                   <div style={{ padding: '8px' }}>
-                    <a href="/admin" style={{ display: 'block', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--foreground)', textDecoration: 'none', borderRadius: '8px', fontWeight: 600 }}>⚙️ Admin Dashboard</a>
                     <button onClick={handleSignOut} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--danger)', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, marginTop: '4px' }}>🚪 Sign Out</button>
                   </div>
                 </div>
