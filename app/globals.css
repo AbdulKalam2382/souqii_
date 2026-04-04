@@ -194,7 +194,26 @@ body {
   position: sticky;
   top: 80px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
+
+.sidebar-content {
+  flex: 1;
+}
+
+.sidebar-footer {
+  position: sticky;
+  bottom: -1.5rem;
+  left: -1.5rem;
+  right: -1.5rem;
+  margin: 1.5rem -1.5rem -1.5rem;
+  padding: 1rem 1.5rem;
+  background: var(--card-bg);
+  border-top: 1px solid var(--card-border);
+  z-index: 10;
+}
+
 
 
 .sidebar-title {

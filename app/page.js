@@ -340,14 +340,15 @@ export default function Home() {
       </section>
 
       {/* MOBILE FILTER TOGGLE */}
-      <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '1rem', display: 'flex', justifyContent: 'flex-start' }} className="mobile-filter-btn-container">
+      <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '1rem', display: 'flex', justifyContent: 'flex-start', position: 'relative', zIndex: 100 }} className="mobile-filter-btn-container">
         <button 
-          onClick={() => setSidebarOpen(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '12px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+          onClick={() => { console.log("Mobile Filter Toggle clicked!"); setSidebarOpen(true); }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '12px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
         >
           <span style={{ fontSize: '1.2rem' }}>⧉</span> Filters & Sort
         </button>
       </div>
+
 
       <div className={`cart-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} style={{ zIndex: 299 }}></div>
 
@@ -356,10 +357,12 @@ export default function Home() {
         
         {/* SIDEBAR */}
         <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 className="sidebar-title" style={{ margin: 0 }}>Filters</h2>
-            <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--muted)' }} className="sidebar-close">✕</button>
-          </div>
+          <div className="sidebar-content">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 className="sidebar-title" style={{ margin: 0 }}>Filters</h2>
+              <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--muted)' }} className="sidebar-close">✕</button>
+            </div>
+
           
           <div style={{ marginBottom: '2rem' }}>
             <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--foreground)', marginBottom: '10px' }}>Category</h3>
@@ -392,21 +395,21 @@ export default function Home() {
               <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} style={{ accentColor: 'var(--accent)', width: '18px', height: '18px' }} />
               In Stock Only
             </label>
+            </div>
           </div>
 
-          {/* Apply Button (Visible on all) */}
-          <div style={{ marginTop: '2rem' }}>
+          {/* Sticky Apply Button */}
+          <div className="sidebar-footer">
               <button 
                 onClick={() => setSidebarOpen(false)} 
                 className="btn-primary" 
-                style={{ width: '100%', padding: '1rem', fontSize: '1rem', fontWeight: 800, background: 'var(--accent)', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '0.85rem', fontSize: '0.9rem', fontWeight: 800, background: 'var(--accent)', color: '#fff', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
               >
                 Apply & View Results
               </button>
           </div>
-
-
         </aside>
+
 
         {/* MAIN CONTENT AREA */}
         <main className="main-content">

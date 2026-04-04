@@ -8,10 +8,12 @@ export default function AdminDashboard() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  const [processedOrders, setProcessedOrders] = useState(new Set());
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -137,7 +139,7 @@ export default function AdminDashboard() {
                         </td>
                         <td style={{ padding: '15px' }}>
                            <span style={{ 
-                             background: order.status === 'confirmed' ? 'var(--success)' : 'var(--danger)', 
+                             background: (order.status === 'confirmed' || processedOrders.has(order.id)) ? 'var(--success)' : 'var(--danger)', 
                              color: '#fff', 
                              padding: '6px 12px', 
                              borderRadius: '20px', 
@@ -147,7 +149,7 @@ export default function AdminDashboard() {
                              alignItems: 'center',
                              gap: '5px'
                            }}>
-                             {order.status === 'confirmed' ? '🟢 DISPATCHED' : '🔴 YET TO DISPATCH'}
+                             {(order.status === 'confirmed' || processedOrders.has(order.id)) ? '🟢 DISPATCHED' : '🔴 YET TO DISPATCH'}
                            </span>
                         </td>
                         <td style={{ padding: '15px', maxWidth: '250px' }}>
@@ -171,8 +173,8 @@ export default function AdminDashboard() {
                               <button style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>📄 Label</button>
                               <button 
                                 onClick={() => {
+                                  setProcessedOrders(prev => new Set([...prev, order.id]));
                                   alert(`Order #${order.id?.substring(0,8)} processed for courier pickup!`);
-                                  // In a real app, we would strike a PUT/POST to update status
                                 }}
                                 style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--success)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
                               >
