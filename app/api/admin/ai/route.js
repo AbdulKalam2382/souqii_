@@ -22,7 +22,7 @@ export async function GET(request) {
     // 3. Fetch recent order context (Last 10)
     const { data: recentOrders, error: recentErr } = await supabaseAdmin
       .from('orders')
-      .select('id, total, status, courier, ai_courier_reason')
+      .select('id, total, status, courier, ai_courier_reason, shipping_address', { count: 'exact' })
       .order('created_at', { ascending: false })
       .limit(10);
       

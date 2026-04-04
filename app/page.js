@@ -394,8 +394,8 @@ export default function Home() {
             </label>
           </div>
 
-          {/* Mobile Only Apply Button */}
-          <div className="sidebar-close" style={{ marginTop: '2rem' }}>
+          {/* Apply Button (Visible on all) */}
+          <div style={{ marginTop: '2rem' }}>
               <button 
                 onClick={() => setSidebarOpen(false)} 
                 className="btn-primary" 
@@ -404,6 +404,7 @@ export default function Home() {
                 Apply & View Results
               </button>
           </div>
+
 
         </aside>
 

@@ -190,9 +190,12 @@ body {
   background: var(--card-bg);
   border-right: 1px solid var(--card-border);
   min-height: calc(100vh - 80px);
+  max-height: calc(100vh - 80px);
   position: sticky;
   top: 80px;
+  overflow-y: auto;
 }
+
 
 .sidebar-title {
   font-weight: 800;
