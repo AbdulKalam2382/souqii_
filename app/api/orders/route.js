@@ -19,7 +19,12 @@ export async function POST(request) {
     if (!items || items.length === 0)
       return NextResponse.json({ error: 'No items in order' }, { status: 400 })
 
-    const productIds = items.map(i => i.product_id)
+    const productIds = items
+      .map(i => i.product_id || i.id)
+      .filter(Boolean)
+      .map(id => parseInt(id))
+      .filter(id => !isNaN(id))
+
     const { data: products, error: productError } = await supabaseAdmin
       .from('products')
       .select('id, price, name, stock')
@@ -101,10 +106,11 @@ export async function POST(request) {
     const orderItems = items.map(item => {
       const pId = item.product_id || item.id 
       const product = products.find(p => p.id === parseInt(pId))
+      const q = parseInt(item.quantity || 1)
       return {
         order_id: order.id,
         product_id: parseInt(pId),
-        quantity: item.quantity,
+        quantity: q,
         unit_price: product.price
       }
     })
@@ -114,9 +120,10 @@ export async function POST(request) {
     for (const item of items) {
       const pId = item.product_id || item.id 
       const product = products.find(p => p.id === parseInt(pId))
+      const q = parseInt(item.quantity || 1)
       await supabaseAdmin
         .from('products')
-        .update({ stock: product.stock - item.quantity })
+        .update({ stock: product.stock - q })
         .eq('id', parseInt(pId))
     }
 
