@@ -112,7 +112,6 @@ export async function POST(request) {
       const q = parseInt(item.quantity || 1)
       return {
         order_id: order.id,
-        user_id: sanitize(user_id),
         product_id: parseInt(pId),
         quantity: q,
         unit_price: product.price
