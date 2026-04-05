@@ -277,7 +277,10 @@ export default function Home() {
     return list;
   };
 
-  // ─── RENDER ───
+  // ─── Image Error Handling ───
+  const handleImageError = (e) => {
+    e.target.src = 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=800&q=80'; // AI-Generated Luxury Hardware Placeholder
+  };
   return (
     <>
       {/* NAVBAR */}
@@ -503,6 +506,7 @@ export default function Home() {
                   src={product.image_url || 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=400'}
                   alt={product.name}
                   loading="lazy"
+                  onError={handleImageError}
                 />
                 <div className="product-card-body">
                   <div className="product-category" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--pink-accent)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>
