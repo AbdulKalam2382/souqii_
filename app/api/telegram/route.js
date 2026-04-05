@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { aiSmartSearch, checkCompatibility, nlCompatibilityCheck, groqEnhanceIntent } from '@/lib/ai';
+import { aiSmartSearch, aiConversationalSearch, checkCompatibility, nlCompatibilityCheck, groqEnhanceIntent } from '@/lib/ai';
 import { selectBestCourier } from '@/lib/courier';
 import { createCheckoutSession } from '@/lib/stripe';
 
@@ -417,11 +417,20 @@ export async function POST(request) {
     else if (intent.intent === 'search' || intent.intent === 'browse') {
       var query = intent.searchQuery || userMessage;
       try {
-        var results = await aiSmartSearch(query);
+        const aiResponse = await aiConversationalSearch(query);
+        const results = aiResponse.products || [];
+        const aiExpertAdvice = aiResponse.message || "";
 
         if (!results || results.length === 0) {
-          await sendMessage(chatId, "😔 No parts found matching \"" + query + "\". Try different keywords!");
+          if (aiExpertAdvice) {
+            await sendMessage(chatId, "🤖 <b>AI Advisor:</b>\n" + aiExpertAdvice);
+          } else {
+            await sendMessage(chatId, "😔 No parts found matching \"" + query + "\". Try different keywords!");
+          }
         } else {
+          if (aiExpertAdvice) {
+            await sendMessage(chatId, "🤖 <b>AI Advisor:</b>\n" + aiExpertAdvice);
+          }
           await sendMessage(chatId, "🔍 Found " + results.length + " match(es) for you:\n");
           var limit = Math.min(results.length, 4);
           for (var j = 0; j < limit; j++) {
