@@ -225,7 +225,7 @@ export default function Home() {
       localStorage.setItem('souqii_last_order', orderData.order_id);
       
       setTimeout(() => {
-        window.location.href = '/track';
+        window.location.href = '/track?order_id=' + orderData.order_id;
       }, 1500);
 
     } catch (err) {

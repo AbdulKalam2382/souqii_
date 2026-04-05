@@ -48,8 +48,9 @@ export default function TrackPage() {
   const getStatusEmoji = (status) => {
     switch (status) {
       case 'pending_payment': return '⏳';
-      case 'paid': return '✅';
-      case 'confirmed': return '✅';
+      case 'paid': return '💳';
+      case 'confirmed': return '📦';
+      case 'dispatched': return '🚀';
       case 'shipped': return '🚚';
       default: return '📦';
     }
@@ -58,9 +59,10 @@ export default function TrackPage() {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'pending_payment': return 'Awaiting Payment';
-      case 'paid': return 'Payment Confirmed';
-      case 'confirmed': return 'Order Confirmed';
-      case 'shipped': return 'Shipped';
+      case 'paid': return 'Processing';
+      case 'confirmed': return 'Confirmed';
+      case 'dispatched': return 'Dispatched & On the way';
+      case 'shipped': return 'Delivered';
       default: return status;
     }
   };
@@ -119,7 +121,7 @@ export default function TrackPage() {
 
         <div className="track-search">
           <input
-            placeholder="Enter Order ID (e.g. 42)"
+            placeholder="Paste your Order ID (UUID format)"
             value={orderId}
             onChange={e => setOrderId(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && fetchOrder(orderId)}
@@ -154,8 +156,20 @@ export default function TrackPage() {
         {order && (
           <div className="order-result">
             <div className="order-result-header">
-              <h2>{getStatusEmoji(order.status)} Order #{order.id}</h2>
-              <span className={`status-badge status-${order.status}`}>
+              <div>
+                <h2>{getStatusEmoji(order.status)} Order Details</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '4px 0' }}>
+                  ID: <code style={{ color: 'var(--accent)', fontWeight: 700 }}>{order.id}</code>
+                  <button onClick={() => { navigator.clipboard.writeText(order.id); alert('ID Copied!'); }}
+                    style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '0.65rem', borderRadius: '4px', background: 'var(--surface)', border: '1px solid var(--card-border)', cursor: 'pointer' }}>
+                    Copy
+                  </button>
+                </p>
+              </div>
+              <span className={`status-badge status-${order.status}`} style={{
+                background: order.status === 'dispatched' ? 'var(--success)' : (order.status === 'paid' ? 'var(--accent)' : 'var(--danger)'),
+                color: '#fff', padding: '6px 15px', borderRadius: '20px', fontWeight: 800, fontSize: '0.75rem'
+              }}>
                 {getStatusLabel(order.status)}
               </span>
             </div>
