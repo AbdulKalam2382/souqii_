@@ -53,7 +53,9 @@ export async function POST(request) {
 
     // Form fallback address string for legacy row OR new format
     let finalAddressString = "";
-    if (door_number) {
+    if (channel === 'pos') {
+       finalAddressString = "Point of Sale / Walk-in";
+    } else if (door_number) {
        finalAddressString = `House ${door_number}, St ${street}, Blk ${block}, ${area}`;
     } else {
        finalAddressString = shipping_address || address || "Address not provided";
@@ -83,20 +85,20 @@ export async function POST(request) {
       .from('orders')
       .insert({
         user_id: sanitize(user_id),
-        status: dummy_payment ? 'paid' : 'pending_payment',
+        status: (dummy_payment || channel === 'pos') ? 'paid' : 'pending_payment',
         channel,
         total: total.toFixed(2),
         shipping_address: finalAddressString,
-        shipping_city: sanitize(city || destinationCity),
+        shipping_city: sanitize(city || destinationCity || 'POS'),
         door_number: sanitize(door_number),
         street: sanitize(street),
         block: sanitize(block),
         area: sanitize(area),
         pincode: sanitize(pincode),
-        courier: aiCourier.courier,
-        courier_cost: parseFloat(aiCourier.cost) || 2.50,
-        estimated_delivery: estimatedDelivery,
-        ai_courier_reason: aiCourier.reasoning
+        courier: channel === 'pos' ? 'In-store Pickup' : aiCourier.courier,
+        courier_cost: channel === 'pos' ? 0 : (parseFloat(aiCourier.cost) || 2.50),
+        estimated_delivery: channel === 'pos' ? new Date().toISOString().split('T')[0] : estimatedDelivery,
+        ai_courier_reason: channel === 'pos' ? 'Direct in-store transaction.' : aiCourier.reasoning
       })
       .select()
       .single()
