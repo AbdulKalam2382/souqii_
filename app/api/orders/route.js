@@ -87,7 +87,8 @@ export async function POST(request) {
         user_id: sanitize(user_id),
         status: (dummy_payment || channel === 'pos') ? 'paid' : 'pending_payment',
         channel,
-        total: total.toFixed(2),
+        total: parseFloat(total.toFixed(2)), 
+        shipping_country: 'Kuwait',
         shipping_address: finalAddressString,
         shipping_city: sanitize(city || destinationCity || 'POS'),
         door_number: sanitize(door_number),
@@ -104,7 +105,11 @@ export async function POST(request) {
       .single()
 
     if (orderError)
-      return NextResponse.json({ error: orderError.message }, { status: 500 })
+      return NextResponse.json({ 
+        error: "Database constraint or schema violation on 'orders' table.",
+        detail: orderError.message,
+        code: orderError.code 
+      }, { status: 500 })
 
     const orderItems = items.map(item => {
       const pId = item.product_id || item.id 
@@ -118,7 +123,13 @@ export async function POST(request) {
       }
     })
 
-    await supabaseAdmin.from('order_items').insert(orderItems)
+    const { error: itemsError } = await supabaseAdmin.from('order_items').insert(orderItems)
+    if (itemsError)
+      return NextResponse.json({ 
+        error: "Failure during item fulfillment mapping.",
+        detail: itemsError.message,
+        code: itemsError.code
+      }, { status: 500 })
 
     for (const item of items) {
       const pId = item.product_id || item.id 
