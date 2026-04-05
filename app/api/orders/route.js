@@ -81,34 +81,48 @@ export async function POST(request) {
     // Form fallback address string for legacy row
     const oldFormatAddress = `House ${door_number}, St ${street}, Blk ${block}, ${area}`;
 
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
-      .insert({
-        user_id: sanitize(user_id),
-        status: (dummy_payment || channel === 'pos') ? 'paid' : 'pending_payment',
-        channel,
-        total: parseFloat(total.toFixed(2)), 
-        shipping_country: 'Kuwait',
-        shipping_address: finalAddressString,
-        shipping_city: sanitize(city || destinationCity || 'POS'),
-        door_number: sanitize(door_number),
-        street: sanitize(street),
-        block: sanitize(block),
-        area: sanitize(area),
-        pincode: sanitize(pincode),
-        courier: channel === 'pos' ? 'In-store Pickup' : aiCourier.courier,
-        courier_cost: channel === 'pos' ? 0 : (parseFloat(aiCourier.cost) || 2.50),
-        estimated_delivery: channel === 'pos' ? new Date().toISOString().split('T')[0] : estimatedDelivery,
-        ai_courier_reason: channel === 'pos' ? 'Direct in-store transaction.' : aiCourier.reasoning
-      })
-      .select()
-      .single()
+    const orderPayload = {
+      user_id: sanitize(user_id),
+      status: (dummy_payment || channel === 'pos') ? 'paid' : 'pending_payment',
+      channel,
+      total: parseFloat(total.toFixed(2)), 
+      shipping_country: 'Kuwait',
+      shipping_address: finalAddressString,
+      shipping_city: sanitize(city || destinationCity || 'POS'),
+      door_number: sanitize(door_number),
+      street: sanitize(street),
+      block: sanitize(block),
+      area: sanitize(area),
+      pincode: sanitize(pincode),
+      courier: channel === 'pos' ? 'In-store Pickup' : aiCourier.courier,
+      courier_cost: channel === 'pos' ? 0 : (parseFloat(aiCourier.cost) || 2.50),
+      estimated_delivery: channel === 'pos' ? new Date().toISOString().split('T')[0] : estimatedDelivery,
+      ai_courier_reason: channel === 'pos' ? 'Direct in-store transaction.' : aiCourier.reasoning
+    };
 
-    if (orderError)
+    let { data: order, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .insert(orderPayload)
+      .select()
+      .single();
+
+    // SELF-HEALING: If foreign key violates (stale user_id), retry as guest (null)
+    if (orderError && orderError.code === '23503') {
+      console.warn("Safe-Order Cleanup: Stale user_id detected. Retrying as Guest Checkout...");
+      const retry = await supabaseAdmin
+        .from('orders')
+        .insert({ ...orderPayload, user_id: null })
+        .select()
+        .single();
+      order = retry.data;
+      orderError = retry.error;
+    }
+
+    if (orderError || !order)
       return NextResponse.json({ 
         error: "Database constraint or schema violation on 'orders' table.",
-        detail: orderError.message,
-        code: orderError.code 
+        detail: orderError?.message || "Unknown schema error.",
+        code: orderError?.code 
       }, { status: 500 })
 
     const orderItems = items.map(item => {
