@@ -33,6 +33,9 @@ export default function Home() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [inStockOnly, setInStockOnly] = useState(false);
+  
+  // AI Response Message
+  const [aiMessage, setAiMessage] = useState('');
 
   // Shipping form - Kuwait 6-part format
   const [doorNumber, setDoorNumber] = useState('');
@@ -105,6 +108,7 @@ export default function Home() {
   const filterCategory = useCallback((slug) => {
     setActiveCat(slug);
     setSearchQuery('');
+    setAiMessage('');
   }, []);
 
   // ─── AI Search ───
@@ -112,26 +116,37 @@ export default function Home() {
     if (!searchQuery.trim()) {
       setFilteredProducts(products);
       setActiveCat('all');
+      setAiMessage('');
       return;
     }
     setSearching(true);
     setActiveCat('all');
+    setAiMessage('');
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'search', payload: { query: searchQuery } })
+        body: JSON.stringify({ action: 'search', payload: { query: searchQuery, conversational: true } })
       });
-      const results = await res.json();
-      if (Array.isArray(results)) {
-        setFilteredProducts(results);
-        showToast(`🔍 AI found ${results.length} result(s)`);
+      const data = await res.json();
+      
+      // Handle conversational response format
+      if (data.message && Array.isArray(data.products)) {
+        setAiMessage(data.message);
+        setFilteredProducts(data.products);
+        showToast(`🤖 AI responded with ${data.products.length} result(s)`);
+      } else if (Array.isArray(data)) {
+        // Legacy format fallback
+        setFilteredProducts(data);
+        showToast(`🔍 AI found ${data.length} result(s)`);
       } else {
         setFilteredProducts([]);
+        setAiMessage(data.message || 'No results found');
         showToast('No results found');
       }
     } catch {
       showToast('Search failed');
+      setAiMessage('');
     }
     setSearching(false);
   };
@@ -197,6 +212,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          user_id: user?.id,
           items: cart.map(item => ({ product_id: item.id, quantity: item.qty })),
           door_number: doorNumber,
           street: street,
@@ -293,7 +309,16 @@ export default function Home() {
                     <p style={{ margin: '4px 0 0', fontSize: '0.9rem', fontWeight: 800, color: 'var(--foreground)', wordBreak: 'break-all' }}>{user.email}</p>
                   </div>
                   <div style={{ padding: '8px' }}>
-                    <button onClick={handleSignOut} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--danger)', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, marginTop: '4px' }}>🚪 Sign Out</button>
+                    <a href="/account/orders" style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--foreground)', textDecoration: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                      <span>📦</span> Order History
+                    </a>
+                    <a href="/account/profile" style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--foreground)', textDecoration: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, marginTop: '2px' }}>
+                      <span>👤</span> Manage Profile
+                    </a>
+                    <div style={{ height: '1px', background: 'var(--card-border)', margin: '8px 0' }}></div>
+                    <button onClick={handleSignOut} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left', padding: '10px 15px', fontSize: '0.85rem', color: 'var(--danger)', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                      <span>🚪</span> Sign Out
+                    </button>
                   </div>
                 </div>
               )}
@@ -321,6 +346,63 @@ export default function Home() {
             {searching ? '...' : '🔍 AI'}
           </button>
         </div>
+        
+        {/* AI Response Message */}
+        {aiMessage && (
+          <div style={{
+            maxWidth: '700px',
+            margin: '1.5rem auto 0',
+            padding: '1rem 1.25rem',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1))',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            borderRadius: '16px',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem',
+                flexShrink: 0
+              }}>
+                🤖
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{
+                  margin: 0,
+                  fontSize: '0.95rem',
+                  lineHeight: '1.6',
+                  color: 'var(--foreground)',
+                  fontWeight: 500
+                }}>
+                  {aiMessage}
+                </p>
+              </div>
+              <button 
+                onClick={() => setAiMessage('')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  fontSize: '1rem',
+                  opacity: 0.6,
+                  transition: 'opacity 0.2s'
+                }}
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* MOBILE FILTER TOGGLE */}

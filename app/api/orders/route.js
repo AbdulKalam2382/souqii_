@@ -153,20 +153,35 @@ export async function POST(request) {
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const order_id = searchParams.get('order_id')
+  const user_id = searchParams.get('user_id')
 
-  if (!order_id)
-    return NextResponse.json({ error: 'order_id required' }, { status: 400 })
+  if (order_id) {
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select('*, order_items(*, products(name, image_url, price))')
+      .eq('id', order_id)
+      .single()
 
-  const { data, error } = await supabaseAdmin
-    .from('orders')
-    .select('*, order_items(*, products(name, image_url, price))')
-    .eq('id', order_id)
-    .single()
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 404 })
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 404 })
+    return NextResponse.json(data)
+  }
 
-  return NextResponse.json(data)
+  if (user_id) {
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select('*, order_items(*, products(name, image_url, price))')
+      .eq('user_id', user_id)
+      .order('created_at', { ascending: false })
+
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json(data)
+  }
+
+  return NextResponse.json({ error: 'order_id or user_id required' }, { status: 400 })
 }
 
 export async function PATCH(request) {
