@@ -18,6 +18,11 @@ export default function AdminDashboard() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalContent, setModalContent] = useState('');
 
+  // Analytics & BI State
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
   // POS State
   const [posProducts, setPosProducts] = useState([]);
   const [posSearch, setPosSearch] = useState('');
@@ -111,6 +116,12 @@ export default function AdminDashboard() {
             style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'owner' ? 'var(--accent)' : 'transparent', color: activeTab === 'owner' ? '#fff' : 'var(--foreground)', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
           >
             Dashboard
+          </button>
+          <button 
+            onClick={() => setActiveTab('worker')}
+            style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: activeTab === 'worker' ? 'var(--accent)' : 'transparent', color: activeTab === 'worker' ? '#fff' : 'var(--foreground)', cursor: 'pointer', fontWeight: 600, transition: '0.3s' }}
+          >
+            🚚 Dispatch
           </button>
           <button 
             onClick={() => setActiveTab('pos')}
