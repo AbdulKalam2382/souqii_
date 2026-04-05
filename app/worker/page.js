@@ -14,6 +14,10 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Label Modal State
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -176,7 +180,12 @@ export default function AdminDashboard() {
 
                         <td style={{ padding: '15px' }}>
                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>📄 Label</button>
+                              <button 
+                                onClick={() => { setSelectedOrder(order); setShowLabelModal(true); }}
+                                style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                📄 Label
+                              </button>
                               <button 
                                 onClick={async () => {
                                   try {
@@ -206,6 +215,51 @@ export default function AdminDashboard() {
            </div>
         </div>
           {/* ... */}
+        </div>
+      )}
+
+      {/* SHIPPING LABEL MODAL */}
+      {showLabelModal && selectedOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#fff', color: '#000', padding: '40px', borderRadius: '4px', maxWidth: '450px', width: '100%', boxShadow: '0 0 40px rgba(0,0,0,0.5)', fontFamily: 'monospace' }}>
+            <div style={{ border: '3px solid #000', padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '20px' }}>
+                <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>⚡ Souqii</span>
+                <span style={{ textAlign: 'right', fontSize: '0.7rem' }}>Official Dispatch<br/>Logistics Protocol</span>
+              </div>
+              
+              {/* Barcode Area */}
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <div style={{ height: '50px', background: 'repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px)', width: '100%', marginBottom: '5px' }}></div>
+                <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>* {selectedOrder.id?.split('-')[0].toUpperCase()} *</span>
+              </div>
+
+              <div style={{ gridTemplateColumns: '1fr 1fr', display: 'grid', gap: '15px', fontSize: '0.8rem', borderBottom: '1px solid #000', paddingBottom: '15px' }}>
+                <div>
+                  <p style={{ fontWeight: 900, marginBottom: '5px', textTransform: 'uppercase' }}>Ship To:</p>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{selectedOrder.shipping_address || 'Address on record'}</p>
+                </div>
+                <div>
+                  <p style={{ fontWeight: 900, marginBottom: '5px', textTransform: 'uppercase' }}>Courier:</p>
+                  <p style={{ fontSize: '1rem', fontWeight: 900 }}>🚚 {selectedOrder.courier || 'DHL FAST'}</p>
+                  <p style={{ fontSize: '0.6rem', marginTop: '4px' }}>Mode: AI Optimized</p>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '15px', fontSize: '0.7rem' }}>
+                <p><b>Order Reference:</b> {selectedOrder.id}</p>
+                <p><b>Expected Delivery:</b> {getExpectedDate(1)}</p>
+              </div>
+
+              <div style={{ marginTop: '20px', textAlign: 'center', borderTop: '2px dashed #ccc', paddingTop: '15px' }}>
+                <p style={{ fontSize: '0.6rem', color: '#666' }}>Powered by Souqii AI Intelligence System<br/>Kuwait Logistics Node</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+               <button onClick={() => window.print()} style={{ flex: 1, padding: '12px', background: '#000', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>🖨️ Print Document</button>
+               <button onClick={() => setShowLabelModal(false)} style={{ flex: 1, padding: '12px', background: '#eee', color: '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>✕ Close</button>
+            </div>
+          </div>
         </div>
       )}
 

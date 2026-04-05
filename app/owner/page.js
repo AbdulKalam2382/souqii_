@@ -18,6 +18,10 @@ export default function AdminDashboard() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalContent, setModalContent] = useState('');
 
+  // Label Modal State
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [selectedLabelOrder, setSelectedLabelOrder] = useState(null);
+
   // Analytics & BI State
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -78,6 +82,13 @@ export default function AdminDashboard() {
       setPosCart(posCart.filter(i => i.id !== id));
   };
   const posTotal = posCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+
+  // Helper for delivery date
+  const getExpectedDate = (days = 2) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toLocaleDateString('en-KW', { day: 'numeric', month: 'short' });
+  };
 
 
   if (!isAuthorized) {
@@ -311,7 +322,12 @@ export default function AdminDashboard() {
                         </td>
                         <td style={{ padding: '15px' }}>
                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>📄 Label</button>
+                              <button 
+                                onClick={() => { setSelectedLabelOrder(order); setShowLabelModal(true); }}
+                                style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                📄 Label
+                              </button>
                               <button style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Ship 📦</button>
                            </div>
                         </td>
@@ -404,6 +420,50 @@ export default function AdminDashboard() {
              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '20px', color: 'var(--accent)' }}>{modalTitle}</h2>
              <p style={{ fontSize: '1rem', lineHeight: '1.8', color: 'var(--foreground)' }}>{modalContent}</p>
              <button className="btn-primary" style={{ marginTop: '30px' }} onClick={() => setShowModal(false)}>Close Insight</button>
+          </div>
+        </div>
+      )}
+
+      {/* SHIPPING LABEL MODAL */}
+      {showLabelModal && selectedLabelOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => setShowLabelModal(false)}>
+          <div style={{ background: '#fff', color: '#000', padding: '40px', borderRadius: '4px', maxWidth: '450px', width: '100%', boxShadow: '0 0 40px rgba(0,0,0,0.5)', fontFamily: 'monospace', position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <div style={{ border: '3px solid #000', padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '20px' }}>
+                <span style={{ fontSize: '1.5rem', fontWeight: 900 }}>⚡ Souqii</span>
+                <span style={{ textAlign: 'right', fontSize: '0.7rem' }}>Official Dispatch<br/>Logistics Protocol</span>
+              </div>
+              
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <div style={{ height: '50px', background: 'repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px)', width: '100%', marginBottom: '5px' }}></div>
+                <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>* {selectedLabelOrder.id?.split('-')[0].toUpperCase()} *</span>
+              </div>
+
+              <div style={{ gridTemplateColumns: '1fr 1fr', display: 'grid', gap: '15px', fontSize: '0.8rem', borderBottom: '1px solid #000', paddingBottom: '15px' }}>
+                <div>
+                  <p style={{ fontWeight: 900, marginBottom: '5px', textTransform: 'uppercase' }}>Ship To:</p>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{selectedLabelOrder.shipping_address || 'Walk-in Customer'}</p>
+                </div>
+                <div>
+                  <p style={{ fontWeight: 900, marginBottom: '5px', textTransform: 'uppercase' }}>Courier:</p>
+                  <p style={{ fontSize: '1rem', fontWeight: 900 }}>🚚 {selectedLabelOrder.courier || 'DHL'}</p>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '15px', fontSize: '0.7rem' }}>
+                <p><b>Order ID:</b> {selectedLabelOrder.id}</p>
+                <p><b>Expected:</b> {getExpectedDate(1)}</p>
+                <p><b>Channel:</b> {selectedLabelOrder.channel?.toUpperCase() || 'WEB'}</p>
+              </div>
+
+              <div style={{ marginTop: '20px', textAlign: 'center', borderTop: '2px dashed #ccc', paddingTop: '15px' }}>
+                <p style={{ fontSize: '0.6rem', color: '#666' }}>Powered by Souqii AI Logistics<br/>Secure Node: KW-01</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+               <button onClick={() => window.print()} style={{ flex: 1, padding: '12px', background: '#000', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>🖨️ Print Label</button>
+               <button onClick={() => setShowLabelModal(false)} style={{ flex: 1, padding: '12px', background: '#eee', color: '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>✕ Close</button>
+            </div>
           </div>
         </div>
       )}
