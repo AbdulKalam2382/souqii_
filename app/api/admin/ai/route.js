@@ -50,7 +50,7 @@ export async function GET(request) {
     // 3. Fetch recent order context
     const { data: recentOrders, error: recentErr } = await supabaseAdmin
       .from('orders')
-      .select('id, total, status, courier, ai_courier_reason, shipping_address', { count: 'exact' })
+      .select('id, total, status, courier, ai_courier_reason, shipping_address, channel', { count: 'exact' })
       .order('created_at', { ascending: false })
       .limit(10);
       

@@ -122,6 +122,7 @@ export default function AdminDashboard() {
                 <thead style={{ background: 'var(--surface)', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--muted)' }}>
                   <tr>
                     <th style={{ padding: '15px' }}>Order ID</th>
+                    <th style={{ padding: '15px' }}>Order Channel</th>
                     <th style={{ padding: '15px' }}>Shipping Address</th>
                     <th style={{ padding: '15px' }}>Dispatch Status</th>
                     <th style={{ padding: '15px' }}>AI Logistics Advice</th>
@@ -132,6 +133,11 @@ export default function AdminDashboard() {
                    {data && data.recentOrders.map((order, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--card-border)' }}>
                         <td style={{ padding: '15px', fontWeight: 600 }}>#{order.id?.substring(0,8)}</td>
+                        <td style={{ padding: '15px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            {order.channel === 'telegram' ? '🤖 Telegram' : order.channel === 'pos' ? '💳 POS' : '🌐 Website'}
+                          </span>
+                        </td>
                         <td style={{ padding: '15px' }}>
                           <span style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'block', maxWidth: '250px' }}>
                             {order.shipping_address && order.shipping_address !== 'Walk-in / Cash' ? order.shipping_address : `Block ${Math.floor(Math.random()*12)+1}, Street ${Math.floor(Math.random()*900)+100}, House ${Math.floor(Math.random()*50)+1}, ${['Hawally', 'Salmiya', 'Jabriya', 'Rawda'][Math.floor(Math.random()*4)]}, Kuwait`}
