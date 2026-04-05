@@ -7,7 +7,7 @@ export async function POST(request) {
     const body = await request.json()
     
     // Hardening: Prevent literal "undefined" or "null" strings from crashing DB
-    const sanitize = (val) => (val === "undefined" || val === "null" || !val) ? null : val;
+    const sanitize = (val) => (val === "undefined" || val === "null" || val === "guest" || !val) ? null : val;
 
     const { 
       user_id, items, 
@@ -112,6 +112,7 @@ export async function POST(request) {
       const q = parseInt(item.quantity || 1)
       return {
         order_id: order.id,
+        user_id: sanitize(user_id),
         product_id: parseInt(pId),
         quantity: q,
         unit_price: product.price
