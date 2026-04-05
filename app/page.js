@@ -192,7 +192,7 @@ export default function Home() {
     setCheckingOut(true);
 
     try {
-      // Step 1: Create order
+      // Step 1: Create order with dummy_payment flag
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,7 +204,8 @@ export default function Home() {
           area: area,
           city: city,
           pincode: pincode,
-          channel: 'website'
+          channel: 'website',
+          dummy_payment: true // BYPASS STRIPE FOR DEMO
         })
       });
       const orderData = await orderRes.json();
@@ -215,34 +216,17 @@ export default function Home() {
         return;
       }
 
-      // Step 2: Get Stripe checkout URL
-      const checkoutRes = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: orderData.order_id,
-          return_url: window.location.origin + '/track'
-        })
-      });
-      const checkoutData = await checkoutRes.json();
-
-      if (!checkoutData.success) {
-        showToast('❌ Payment setup failed');
-        setCheckingOut(false);
-        return;
-      }
-
-      // Step 3: Clear cart and redirect to Stripe
+      // Step 2: Skip Stripe and show immediate success
       setCart([]);
       saveCart([]);
-      showToast('🚀 Redirecting to secure payment...');
+      showToast('🚀 Order Successful! Redirecting to tracking...');
       
       // Save order ID so they can track it
       localStorage.setItem('souqii_last_order', orderData.order_id);
       
       setTimeout(() => {
-        window.location.href = checkoutData.checkoutUrl;
-      }, 800);
+        window.location.href = '/track';
+      }, 1500);
 
     } catch (err) {
       console.error('Checkout error:', err);

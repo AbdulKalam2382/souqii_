@@ -13,7 +13,8 @@ export async function POST(request) {
       user_id, items, 
       door_number, street, block, area, city, pincode, 
       shipping_address, address, // Legacy address strings
-      channel = 'website' 
+      channel = 'website',
+      dummy_payment = false // Demo mode support
     } = body
 
     if (!items || items.length === 0)
@@ -82,7 +83,7 @@ export async function POST(request) {
       .from('orders')
       .insert({
         user_id: sanitize(user_id),
-        status: 'pending_payment',
+        status: dummy_payment ? 'paid' : 'pending_payment',
         channel,
         total: total.toFixed(2),
         shipping_address: finalAddressString,
@@ -164,4 +165,28 @@ export async function GET(request) {
     return NextResponse.json({ error: error.message }, { status: 404 })
 
   return NextResponse.json(data)
+}
+
+export async function PATCH(request) {
+  try {
+    const { order_id, status } = await request.json()
+
+    if (!order_id || !status)
+      return NextResponse.json({ error: 'order_id and status required' }, { status: 400 })
+
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .update({ status })
+      .eq('id', order_id)
+      .select()
+      .single()
+
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true, order: data })
+
+  } catch (err) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  }
 }

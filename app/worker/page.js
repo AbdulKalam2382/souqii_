@@ -139,7 +139,7 @@ export default function AdminDashboard() {
                         </td>
                         <td style={{ padding: '15px' }}>
                            <span style={{ 
-                             background: (order.status === 'confirmed' || processedOrders.has(order.id)) ? 'var(--success)' : 'var(--danger)', 
+                             background: (order.status === 'dispatched' || processedOrders.has(order.id)) ? 'var(--success)' : (order.status === 'paid' ? 'var(--accent)' : 'var(--danger)'), 
                              color: '#fff', 
                              padding: '6px 12px', 
                              borderRadius: '20px', 
@@ -149,7 +149,7 @@ export default function AdminDashboard() {
                              alignItems: 'center',
                              gap: '5px'
                            }}>
-                             {(order.status === 'confirmed' || processedOrders.has(order.id)) ? '🟢 DISPATCHED' : '🔴 YET TO DISPATCH'}
+                             {(order.status === 'dispatched' || processedOrders.has(order.id)) ? '🟢 DISPATCHED' : (order.status === 'paid' ? '🔵 PAID & READY' : '🔴 PENDING')}
                            </span>
                         </td>
                         <td style={{ padding: '15px', maxWidth: '250px' }}>
@@ -172,11 +172,21 @@ export default function AdminDashboard() {
                            <div style={{ display: 'flex', gap: '8px' }}>
                               <button style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>📄 Label</button>
                               <button 
-                                onClick={() => {
-                                  setProcessedOrders(prev => new Set([...prev, order.id]));
-                                  alert(`Order #${order.id?.substring(0,8)} processed for courier pickup!`);
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch('/api/orders', {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ order_id: order.id, status: 'dispatched' })
+                                    });
+                                    if (res.ok) {
+                                      setProcessedOrders(prev => new Set([...prev, order.id]));
+                                      alert(`Order #${order.id?.substring(0,8)} processed for courier pickup!`);
+                                    }
+                                  } catch (err) { console.error(err); }
                                 }}
                                 style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--success)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                                disabled={order.status === 'dispatched' || processedOrders.has(order.id)}
                               >
                                 Mark as Processed ✅
                               </button>
