@@ -178,7 +178,7 @@ async function finalizeDraft(orderId) {
   const { error: upErr } = await supabaseAdmin
     .from('orders')
     .update({
-      status: 'pending_payment',
+      status: 'paid', // DEMO MODE: Mark as paid immediately
       shipping_address: compiledAddress,
       courier: aiCourier.courier,
       courier_cost: aiCourier.cost,
@@ -189,10 +189,20 @@ async function finalizeDraft(orderId) {
 
   if (upErr) return { error: upErr.message };
 
-  const baseUrl = "https://souqii-one.vercel.app";
-  const checkoutUrl = await createCheckoutSession(orderId, parseFloat(orderData.total), baseUrl);
+  // --- DEMO MODE STOCK REDUCTION ---
+  if (orderData.order_items) {
+    for (const item of orderData.order_items) {
+      if (item.products && item.products.id) {
+        const newStock = Math.max(0, (item.products.stock || 0) - item.quantity);
+        await supabaseAdmin
+          .from('products')
+          .update({ stock: newStock })
+          .eq('id', item.products.id);
+      }
+    }
+  }
 
-  return { checkoutUrl, courier: aiCourier, orderData, compiledAddress };
+  return { courier: aiCourier, orderData, compiledAddress };
 }
 
 // ──────────────────────────────────────────
@@ -357,17 +367,20 @@ export async function POST(request) {
           ? pendingDraft.order_items.map(oi => oi.products ? oi.products.name : 'Product').join(', ')
           : 'Your items';
 
-        var confirm = "🛒 <b>Order Invoice Ready!</b>\n\n";
+        const baseUrl = "https://souqii-one.vercel.app";
+        const trackUrl = `${baseUrl}/track?order_id=${pendingDraft.id}`;
+
+        var confirm = "🛒 <b>Order Confirmed & Paid!</b> (Demo Mode)\n\n";
         confirm += "📦 Item: " + itemNames + "\n";
         confirm += "💰 Total: KD " + pendingDraft.total + "\n";
         confirm += "📍 Ships to: " + finalResult.compiledAddress + "\n";
         confirm += "🚚 Optimal Courier: " + finalResult.courier.courier + " (" + finalResult.courier.estimatedDays + ")\n\n";
-        confirm += "Your order is ready for payment:";
+        confirm += "Your order has been sent to our warehouse for dispatch. You can track its progress below:";
 
         await sendMessage(chatId, confirm, {
           reply_markup: {
             inline_keyboard: [[
-              { text: "💳 Proceed to Payment", url: finalResult.checkoutUrl }
+              { text: "📦 Track Order Progress", url: trackUrl }
             ]]
           }
         });
